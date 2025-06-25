@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Timeline: The Evolution of AI Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      /* Simple smooth scroll for anchor links if we were to add any */
+      html {
+        scroll-behavior: smooth;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 dark:bg-gray-900 font-sans">
+    <div id="app" class="min-h-screen p-4 sm:p-6 lg:p-8">
+      <div class="container mx-auto flex flex-col items-start md:items-center">
+        <h1
+          class="text-3xl md:text-5xl font-extrabold text-gray-800 dark:text-white mb-4 text-center"
+        >
+          The Evolution of Artificial Intelligence
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-12 text-center max-w-3xl">
+          A visual timeline of key breakthroughs, paradigm shifts, and landmark
+          systems that have defined the journey of AI from concept to modern
+          reality.
+        </p>
+
+        <div
+          id="timeline-container"
+          class="relative wrap overflow-hidden p-4 md:p-10 h-full w-full"
+        >
+          <!-- The vertical line -->
+          <div
+            class="border-2-2 absolute border-opacity-20 border-gray-700 dark:border-gray-400 h-full border"
+            style="left: 50%"
+          ></div>
+
+          <!-- Timeline items will be injected here by JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // --- Data for the Timeline ---
+      const timelineData = [
+        {
+          year: "1950",
+          title: "Turing Test",
+          description:
+            "Alan Turing proposes the 'Imitation Game' as a test of a machine's ability to exhibit intelligent behavior equivalent to, or indistinguishable from, that of a human.",
+          category: "Foundations",
+          icon: "🤖",
+        },
+        {
+          year: "1956",
+          title: "The Dartmouth Workshop",
+          description:
+            "The term 'Artificial Intelligence' is coined by John McCarthy. This event is widely considered the birth of AI as a formal field of research.",
+          category: "Foundations",
+          icon: "🧠",
+        },
+        {
+          year: "1966",
+          title: "ELIZA",
+          description:
+            "Joseph Weizenbaum creates ELIZA, an early natural language processing program that demonstrated superficial conversation between humans and machines.",
+          category: "Early AI",
+          icon: "💬",
+        },
+        {
+          year: "1973",
+          title: "The Lighthill Report & AI Winter",
+          description:
+            "A report for the British government severely criticizes the progress in AI research, leading to major cuts in funding in the UK and inspiring similar reductions in the US, ushering in the first 'AI winter'.",
+          category: "Setbacks",
+          icon: "❄️",
+        },
+        {
+          year: "1980s",
+          title: "Rise of Expert Systems",
+          description:
+            "A boom in 'Expert Systems' occurs, where AI programs mimic the decision-making ability of a human expert in a specific domain. These systems see commercial success.",
+          category: "Symbolic AI",
+          icon: "💼",
+        },
+        {
+          year: "1986",
+          title: "Backpropagation Gains Popularity",
+          description:
+            "Though discovered earlier, a paper by Rumelhart, Hinton, and Williams popularizes backpropagation, an algorithm that enables efficient training of multi-layer neural networks, laying the groundwork for the deep learning revolution.",
+          category: "Machine Learning",
+          icon: "📈",
+        },
+        {
+          year: "1997",
+          title: "Deep Blue vs. Kasparov",
+          description:
+            "IBM's Deep Blue chess computer defeats world champion Garry Kasparov, a landmark achievement for symbolic AI and search algorithms.",
+          category: "Symbolic AI",
+          icon: "♟️",
+        },
+        {
+          year: "2012",
+          title: "AlexNet & The ImageNet Moment",
+          description:
+            "A deep convolutional neural network named AlexNet, developed by Alex Krizhevsky, Ilya Sutskever, and Geoffrey Hinton, drastically outperforms all other methods in the ImageNet competition, sparking the modern deep learning boom.",
+          category: "Deep Learning",
+          icon: "🖼️",
+        },
+        {
+          year: "2016",
+          title: "AlphaGo vs. Lee Sedol",
+          description:
+            "DeepMind's AlphaGo, a program combining deep neural networks and tree search, defeats Go world champion Lee Sedol, a feat previously thought to be decades away.",
+          category: "Deep Learning",
+          icon: "🏆",
+        },
+        {
+          year: "2017",
+          title: "Attention Is All You Need",
+          description:
+            "A Google paper introduces the Transformer architecture, which relies entirely on self-attention mechanisms to process sequential data. This becomes the foundation for most modern Large Language Models.",
+          category: "LLMs",
+          icon: "📜",
+        },
+        {
+          year: "2020",
+          title: "GPT-3 & The Age of Scale",
+          description:
+            "OpenAI releases GPT-3, a 175-billion parameter language model that demonstrates remarkable few-shot and zero-shot learning capabilities, showcasing the power of massive scale.",
+          category: "LLMs",
+          icon: "🚀",
+        },
+        {
+          year: "2021",
+          title: "Rise of Diffusion Models",
+          description:
+            "Models like DALL-E and GLIDE demonstrate the power of diffusion models for high-fidelity text-to-image generation, revolutionizing creative AI.",
+          category: "Generative AI",
+          icon: "🎨",
+        },
+        {
+          year: "2022",
+          title: "ChatGPT & The Alignment Breakthrough",
+          description:
+            "OpenAI releases ChatGPT, an instruction-tuned model using Reinforcement Learning from Human Feedback (RLHF). Its conversational ability and helpfulness bring LLMs into the mainstream.",
+          category: "LLMs",
+          icon: "🗣️",
+        },
+        {
+          year: "2023+",
+          title: "Multimodality, Agents, and Efficiency",
+          description:
+            "The frontier shifts to multimodal models (e.g., GPT-4V) that understand text and images, the rise of AI agents that can use tools, and new architectures like Mixture-of-Experts (MoE) and State-Space Models (SSMs) that enable greater capabilities with more efficiency.",
+          category: "Frontiers",
+          icon: "🌍",
+        },
+      ];
+
+      // --- Helper function to get category styles ---
+      function getCategoryPill(category) {
+        const categoryColors = {
+          Foundations: "bg-gray-500 text-white",
+          "Early AI": "bg-sky-500 text-white",
+          Setbacks: "bg-red-500 text-white",
+          "Symbolic AI": "bg-indigo-500 text-white",
+          "Machine Learning": "bg-blue-500 text-white",
+          "Deep Learning": "bg-purple-600 text-white",
+          LLMs: "bg-emerald-500 text-white",
+          "Generative AI": "bg-pink-500 text-white",
+          Frontiers: "bg-amber-500 text-white",
+        };
+        const defaultStyle = "bg-gray-300 text-gray-800";
+        const style = categoryColors[category] || defaultStyle;
+        return `<span class="text-xs font-semibold px-2.5 py-1 rounded-full ${style}">${category}</span>`;
+      }
+
+      // --- Function to create and render a single timeline item ---
+      function createTimelineItem(data, index) {
+        const isEven = index % 2 === 0;
+        const cardVisibilityLeft = isEven ? "" : "invisible";
+        const cardVisibilityRight = isEven ? "invisible" : "";
+
+        const itemHTML = `
+                <div class="mb-8 flex justify-between items-center w-full">
+                    <!-- Display item on the left for even indices -->
+                    <div class="order-1 w-5/12 ${cardVisibilityLeft}">
+                      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl px-6 py-4 transform hover:scale-105 transition-transform duration-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-bold text-lg text-gray-800 dark:text-white">${
+                              data.title
+                            } <span class="text-2xl ml-2">${
+          data.icon
+        }</span></h3>
+                            ${getCategoryPill(data.category)}
+                        </div>
+                        <p class="text-sm leading-snug tracking-wide text-gray-600 dark:text-gray-300 text-opacity-100">
+                          ${data.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Centerpiece: The circle and year -->
+                    <div class="z-20 flex items-center order-1 bg-gray-800 dark:bg-gray-700 shadow-xl w-24 h-8 rounded-full">
+                      <h1 class="mx-auto font-semibold text-lg text-white">${
+                        data.year
+                      }</h1>
+                    </div>
+
+                    <!-- Display item on the right for odd indices -->
+                    <div class="order-1 w-5/12 ${cardVisibilityRight}">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl px-6 py-4 transform hover:scale-105 transition-transform duration-300">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-bold text-lg text-gray-800 dark:text-white">${
+                                  data.title
+                                } <span class="text-2xl ml-2">${
+          data.icon
+        }</span></h3>
+                                ${getCategoryPill(data.category)}
+                            </div>
+                            <p class="text-sm leading-snug tracking-wide text-gray-600 dark:text-gray-300 text-opacity-100">
+                            ${data.description}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        return itemHTML;
+      }
+
+      // --- Main function to render the entire timeline ---
+      function renderTimeline() {
+        const container = document.getElementById("timeline-container");
+        if (!container) return;
+
+        // Clear any existing content
+        container.innerHTML = `
+                <div class="border-2-2 absolute border-opacity-20 border-gray-700 dark:border-gray-400 h-full border" style="left: 50%;"></div>
+            `;
+
+        // Map data to HTML and append to the container
+        timelineData.forEach((item, index) => {
+          const itemHTML = createTimelineItem(item, index);
+          container.innerHTML += itemHTML;
+        });
+      }
+
+      // --- Render the timeline when the DOM is fully loaded ---
+      document.addEventListener("DOMContentLoaded", renderTimeline);
+    </script>
+  </body>
+</html>
