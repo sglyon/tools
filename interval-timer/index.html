@@ -47,6 +47,7 @@
       const synth = new Tone.Synth().toDestination();
       const playSound = (note, duration) => {
         try {
+          // Tone.start() is required to start the audio context in the browser.
           Tone.start();
           synth.triggerAttackRelease(note, duration);
         } catch (e) {
@@ -183,10 +184,18 @@
         </div>
       `;
 
-      const Button = ({ onClick, children, className = "" }) => html`
+      const Button = ({
+        onClick,
+        children,
+        className = "",
+        disabled = false,
+      }) => html`
         <button
           onClick=${onClick}
-          class="px-4 py-2 rounded-md font-semibold transition-colors ${className}"
+          class="px-4 py-2 rounded-md font-semibold transition-colors ${className} ${disabled
+            ? "opacity-50 cursor-not-allowed"
+            : ""}"
+          disabled=${disabled}
         >
           ${children}
         </button>
@@ -520,22 +529,28 @@
         `;
       };
 
-      const TimerDisplay = ({ timerState, onPause, onResume, onReset }) => {
-        const {
-          timeLeft,
-          totalDuration,
-          currentPhase,
-          phaseName,
-          blockProgress,
-          setProgress,
-          totalProgress,
-          isPaused,
-        } = timerState;
-
+      const TimerDisplay = ({
+        timeLeft,
+        totalDuration,
+        currentPhase,
+        phaseName,
+        blockProgress,
+        setProgress,
+        intervalProgress,
+        totalProgress,
+        isPaused,
+        isFinished,
+        onPause,
+        onResume,
+        onReset,
+        onSkipForward,
+        onSkipBackward,
+      }) => {
         const progress = totalDuration > 0 ? timeLeft / totalDuration : 0;
         const dashOffset = 283 * (1 - progress);
 
         const getPhaseColor = () => {
+          if (isFinished) return "stroke-green-500";
           switch (currentPhase) {
             case "WORK":
               return "stroke-green-400";
@@ -549,6 +564,7 @@
         };
 
         const getPhaseTextColor = () => {
+          if (isFinished) return "text-green-500";
           switch (currentPhase) {
             case "WORK":
               return "text-green-400";
@@ -582,7 +598,7 @@
                   cy="50"
                   r="45"
                   fill="transparent"
-                  style=${{ strokeDashoffset: dashOffset }}
+                  style=${{ strokeDashoffset: isFinished ? 0 : dashOffset }}
                 />
               </svg>
               <div
@@ -599,10 +615,11 @@
               </div>
             </div>
 
-            <div class="space-y-2">
+            <div class="space-y-1 text-lg">
               <p class="text-xl sm:text-2xl font-medium">${phaseName}</p>
-              <p class="text-lg text-gray-400">${blockProgress}</p>
-              <p class="text-lg text-gray-400">${setProgress}</p>
+              <p class="text-gray-300">${intervalProgress}</p>
+              <p class="text-gray-400">${blockProgress}</p>
+              <p class="text-gray-400">${setProgress}</p>
             </div>
 
             <div class="w-full max-w-sm">
@@ -617,24 +634,38 @@
               </p>
             </div>
 
-            <div class="flex gap-4">
+            <div class="flex items-center justify-center gap-4">
+              <${Button}
+                onClick=${onSkipBackward}
+                className="bg-gray-600 hover:bg-gray-700 w-24"
+                disabled=${isFinished}
+                >Back<//
+              >
               ${isPaused
                 ? html`<${Button}
                     onClick=${onResume}
                     className="bg-green-600 hover:bg-green-700 w-32"
+                    disabled=${isFinished}
                     >Resume<//
                   >`
                 : html`<${Button}
                     onClick=${onPause}
                     className="bg-yellow-500 hover:bg-yellow-600 w-32"
+                    disabled=${isFinished}
                     >Pause<//
                   >`}
               <${Button}
-                onClick=${onReset}
-                className="bg-red-600 hover:bg-red-700 w-32"
-                >Reset<//
+                onClick=${onSkipForward}
+                className="bg-gray-600 hover:bg-gray-700 w-24"
+                disabled=${isFinished}
+                >Skip<//
               >
             </div>
+            <${Button}
+              onClick=${onReset}
+              className="bg-red-600 hover:bg-red-700 w-full max-w-xs mt-2"
+              >End Workout<//
+            >
           </div>
         `;
       };
@@ -645,20 +676,20 @@
           name: "My Workout",
           blocks: [createBlock()],
         });
-        const [isTimerActive, setTimerActive] = useState(false);
-        const [timerState, setTimerState] = useState({});
+        const [view, setView] = useState("builder"); // 'builder' or 'timer'
 
-        const timerRef = createRef();
-        timerRef.current = null;
+        // Timer State
+        const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+        const [timeLeft, setTimeLeft] = useState(0);
+        const [isPaused, setIsPaused] = useState(true);
 
-        const generateWorkoutQueue = useCallback(() => {
+        const workoutQueue = useMemo(() => {
           const queue = [];
           let totalWorkoutTime = 0;
 
           workout.blocks.forEach((block, blockIndex) => {
             for (let repeat = 0; repeat < block.repeats; repeat++) {
               block.intervals.forEach((interval, intervalIndex) => {
-                // Add work interval
                 queue.push({
                   type: "WORK",
                   duration: interval.duration,
@@ -669,7 +700,6 @@
                 });
                 totalWorkoutTime += interval.duration;
 
-                // Add rest between intervals if not the last interval
                 if (
                   intervalIndex < block.intervals.length - 1 &&
                   block.restBetweenIntervals > 0
@@ -686,7 +716,6 @@
                 }
               });
 
-              // Add rest between blocks if not the last repeat of the block
               if (repeat < block.repeats - 1 && block.restBetweenBlocks > 0) {
                 queue.push({
                   type: "REST_BLOCK",
@@ -703,214 +732,166 @@
           return { queue, totalWorkoutTime };
         }, [workout]);
 
-        const workoutQueue = useMemo(generateWorkoutQueue, [workout]);
+        const { queue, totalWorkoutTime } = workoutQueue;
+        const currentPhaseItem = queue[currentQueueIndex];
+        const isFinished =
+          !currentPhaseItem ||
+          (currentQueueIndex === queue.length - 1 && timeLeft === 0);
 
-        const stopTimer = useCallback(() => {
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
+        // Timer Tick Effect
+        useEffect(() => {
+          if (view !== "timer" || isPaused || !currentPhaseItem || isFinished) {
+            return;
           }
-        }, []);
 
-        const startTimer = () => {
-          stopTimer();
-          let { queue, totalWorkoutTime } = workoutQueue;
-          if (queue.length === 0) return;
-
-          let currentQueueIndex = 0;
-          let timeElapsedInPhase = 0;
-          let totalTimeElapsed = 0;
-
-          const tick = () => {
-            const currentPhaseItem = queue[currentQueueIndex];
-            if (!currentPhaseItem) {
-              setTimerState((prev) => ({
-                ...prev,
-                currentPhase: "DONE",
-                phaseName: "Workout Complete!",
-                timeLeft: 0,
-              }));
-              SOUNDS.FINISH();
-              stopTimer();
-              return;
-            }
-
-            totalTimeElapsed++;
-            timeElapsedInPhase++;
-
-            const timeLeftInPhase =
-              currentPhaseItem.duration - timeElapsedInPhase;
-
-            const currentBlock = workout.blocks[currentPhaseItem.blockIndex];
-            const currentInterval =
-              currentBlock.intervals[currentPhaseItem.intervalIndex];
-
-            setTimerState({
-              timeLeft: timeLeftInPhase,
-              totalDuration: currentPhaseItem.duration,
-              currentPhase: currentPhaseItem.type,
-              phaseName: currentPhaseItem.name,
-              blockProgress: `Block ${currentPhaseItem.blockIndex + 1} / ${
-                workout.blocks.length
-              }`,
-              setProgress: `Set ${currentPhaseItem.repeatIndex + 1} / ${
-                currentBlock.repeats
-              }`,
-              totalProgress: (totalTimeElapsed / totalWorkoutTime) * 100,
-              isPaused: false,
-            });
-
-            if (timeLeftInPhase <= 0) {
-              currentQueueIndex++;
-              timeElapsedInPhase = 0;
-              const nextPhase = queue[currentQueueIndex];
-              if (nextPhase) {
-                if (nextPhase.type === "WORK") SOUNDS.START();
-                else SOUNDS.REST();
+          const timerId = setInterval(() => {
+            setTimeLeft((prev) => {
+              if (prev <= 1) {
+                if (currentQueueIndex < queue.length - 1) {
+                  setCurrentQueueIndex(currentQueueIndex + 1);
+                } else {
+                  // Last interval finished
+                  setIsPaused(true);
+                  setTimeout(SOUNDS.FINISH, 100);
+                }
+                return 0; // Will be set by the next effect, but set to 0 to be safe
               }
-            } else if (timeLeftInPhase <= 3) {
-              SOUNDS.TRANSITION();
-            }
-          };
+              return prev - 1;
+            });
+          }, 1000);
 
-          // Initial state setup
-          const firstPhase = queue[0];
-          setTimerState({
-            timeLeft: firstPhase.duration,
-            totalDuration: firstPhase.duration,
-            currentPhase: firstPhase.type,
-            phaseName: firstPhase.name,
-            blockProgress: `Block 1 / ${workout.blocks.length}`,
-            setProgress: `Set 1 / ${workout.blocks[0].repeats}`,
-            totalProgress: 0,
-            isPaused: false,
-          });
-          SOUNDS.START();
+          return () => clearInterval(timerId);
+        }, [
+          view,
+          isPaused,
+          timeLeft,
+          currentQueueIndex,
+          queue.length,
+          isFinished,
+        ]);
 
-          timerRef.current = setInterval(tick, 1000);
-        };
+        // Phase Change Effect (when index changes)
+        useEffect(() => {
+          if (!currentPhaseItem) {
+            setTimeLeft(0);
+            return;
+          }
+          setTimeLeft(currentPhaseItem.duration);
+
+          // Play sounds only when timer is running and not on initial load
+          if (view === "timer" && !isPaused) {
+            if (currentPhaseItem.type === "WORK") SOUNDS.START();
+            else SOUNDS.REST();
+          }
+        }, [currentQueueIndex, view]);
+
+        // Countdown Ticks Sound Effect
+        useEffect(() => {
+          if (view === "timer" && !isPaused && timeLeft > 0 && timeLeft <= 3) {
+            SOUNDS.TRANSITION();
+          }
+        }, [timeLeft, view, isPaused]);
 
         const handleStart = () => {
-          setTimerActive(true);
-          startTimer();
-        };
-
-        const handlePause = () => {
-          stopTimer();
-          setTimerState((prev) => ({ ...prev, isPaused: true }));
-        };
-
-        const handleResume = () => {
-          setTimerState((prev) => ({ ...prev, isPaused: false }));
-
-          // Re-calculate state and resume
-          let { queue, totalWorkoutTime } = workoutQueue;
-          let totalTimeElapsed = 0;
-          let remainingTimeInPhase = timerState.timeLeft;
-
-          for (let i = 0; i < queue.length; i++) {
-            if (
-              queue[i].type === timerState.currentPhase &&
-              queue[i].name === timerState.phaseName
-            ) {
-              // This is a rough approximation. A more robust solution would store queue index.
-              totalTimeElapsed += queue[i].duration - remainingTimeInPhase;
-              break;
-            }
-            totalTimeElapsed += queue[i].duration;
-          }
-
-          let currentQueueIndex = 0;
-          let timeTracker = 0;
-          for (let i = 0; i < queue.length; i++) {
-            timeTracker += queue[i].duration;
-            if (timeTracker >= totalTimeElapsed) {
-              currentQueueIndex = i;
-              break;
-            }
-          }
-
-          let timeElapsedInPhase =
-            totalTimeElapsed -
-            (timeTracker - queue[currentQueueIndex].duration);
-
-          const tick = () => {
-            const currentPhaseItem = queue[currentQueueIndex];
-            if (!currentPhaseItem) {
-              setTimerState((prev) => ({
-                ...prev,
-                currentPhase: "DONE",
-                phaseName: "Workout Complete!",
-                timeLeft: 0,
-              }));
-              SOUNDS.FINISH();
-              stopTimer();
-              return;
-            }
-
-            totalTimeElapsed++;
-            timeElapsedInPhase++;
-
-            const timeLeftInPhase =
-              currentPhaseItem.duration - timeElapsedInPhase;
-
-            const currentBlock = workout.blocks[currentPhaseItem.blockIndex];
-
-            setTimerState({
-              timeLeft: timeLeftInPhase,
-              totalDuration: currentPhaseItem.duration,
-              currentPhase: currentPhaseItem.type,
-              phaseName: currentPhaseItem.name,
-              blockProgress: `Block ${currentPhaseItem.blockIndex + 1} / ${
-                workout.blocks.length
-              }`,
-              setProgress: `Set ${currentPhaseItem.repeatIndex + 1} / ${
-                currentBlock.repeats
-              }`,
-              totalProgress: (totalTimeElapsed / totalWorkoutTime) * 100,
-              isPaused: false,
-            });
-
-            if (timeLeftInPhase <= 0) {
-              currentQueueIndex++;
-              timeElapsedInPhase = 0;
-              const nextPhase = queue[currentQueueIndex];
-              if (nextPhase) {
-                if (nextPhase.type === "WORK") SOUNDS.START();
-                else SOUNDS.REST();
-              }
-            } else if (timeLeftInPhase <= 3) {
-              SOUNDS.TRANSITION();
-            }
-          };
-
-          timerRef.current = setInterval(tick, 1000);
+          if (queue.length === 0) return;
+          setCurrentQueueIndex(0);
+          setTimeLeft(queue[0].duration);
+          setView("timer");
+          setIsPaused(false);
+          SOUNDS.START();
         };
 
         const handleReset = () => {
-          stopTimer();
-          setTimerActive(false);
-          setTimerState({});
+          setView("builder");
+          setIsPaused(true);
+          setCurrentQueueIndex(0);
+          setTimeLeft(0);
         };
 
-        useEffect(() => {
-          // Cleanup timer on component unmount
-          return () => stopTimer();
-        }, [stopTimer]);
+        const handleSkip = (direction) => {
+          const nextIndex = currentQueueIndex + direction;
+          if (nextIndex >= 0 && nextIndex < queue.length) {
+            setCurrentQueueIndex(nextIndex);
+          }
+        };
+
+        const totalTimeElapsed = useMemo(() => {
+          if (!currentPhaseItem) return totalWorkoutTime;
+          const timeInPreviousPhases = queue
+            .slice(0, currentQueueIndex)
+            .reduce((acc, phase) => acc + phase.duration, 0);
+          const timeInCurrentPhase = currentPhaseItem.duration - timeLeft;
+          return timeInPreviousPhases + timeInCurrentPhase;
+        }, [
+          queue,
+          currentQueueIndex,
+          timeLeft,
+          currentPhaseItem,
+          totalWorkoutTime,
+        ]);
+
+        const totalProgress =
+          totalWorkoutTime > 0
+            ? (totalTimeElapsed / totalWorkoutTime) * 100
+            : 0;
+
+        const displayProps = currentPhaseItem
+          ? {
+              timeLeft: isFinished ? 0 : timeLeft,
+              totalDuration: currentPhaseItem.duration,
+              currentPhase: isFinished ? "DONE" : currentPhaseItem.type,
+              phaseName: isFinished
+                ? "Workout Complete!"
+                : currentPhaseItem.name,
+              blockProgress: isFinished
+                ? ""
+                : `Block ${currentPhaseItem.blockIndex + 1} / ${
+                    workout.blocks.length
+                  }`,
+              setProgress: isFinished
+                ? ""
+                : `Set ${currentPhaseItem.repeatIndex + 1} / ${
+                    workout.blocks[currentPhaseItem.blockIndex].repeats
+                  }`,
+              intervalProgress: isFinished
+                ? ""
+                : currentPhaseItem.type === "WORK"
+                ? `Interval ${currentPhaseItem.intervalIndex + 1} / ${
+                    workout.blocks[currentPhaseItem.blockIndex].intervals.length
+                  }`
+                : "Rest",
+              totalProgress: isFinished ? 100 : totalProgress,
+              isPaused,
+              isFinished,
+            }
+          : {
+              timeLeft: 0,
+              totalDuration: 0,
+              currentPhase: "DONE",
+              phaseName: "Workout Complete!",
+              blockProgress: "",
+              setProgress: "",
+              intervalProgress: "",
+              totalProgress: 100,
+              isPaused: true,
+              isFinished: true,
+            };
 
         return html`
           <div class="p-4">
-            ${isTimerActive
-              ? html`<${TimerDisplay}
-                  timerState=${timerState}
-                  onPause=${handlePause}
-                  onResume=${handleResume}
-                  onReset=${handleReset}
-                />`
-              : html`<${WorkoutBuilder}
+            ${view === "builder"
+              ? html`<${WorkoutBuilder}
                   workout=${workout}
                   dispatch=${dispatch}
                   onStart=${handleStart}
+                />`
+              : html`<${TimerDisplay}
+                  ...${displayProps}
+                  onPause=${() => setIsPaused(true)}
+                  onResume=${() => setIsPaused(false)}
+                  onReset=${handleReset}
+                  onSkipForward=${() => handleSkip(1)}
+                  onSkipBackward=${() => handleSkip(-1)}
                 />`}
           </div>
         `;
