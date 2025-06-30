@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workout Interval Timer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/preact@10.5.15/dist/preact.umd.js"></script>
+    <script src="https://unpkg.com/preact@10.5.15/hooks/dist/hooks.umd.js"></script>
+    <script src="https://unpkg.com/htm@3.1.0/dist/htm.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .timer-circle {
+        stroke-dasharray: 283;
+        stroke-dashoffset: 0;
+        transition: stroke-dashoffset 1s linear;
+      }
+      .no-spinner::-webkit-outer-spin-button,
+      .no-spinner::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .no-spinner {
+        -moz-appearance: textfield;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4"
+  >
+    <div id="app" class="w-full max-w-4xl mx-auto"></div>
+
+    <script type="module">
+      const { h, render, Component, createRef } = preact;
+      const { useState, useEffect, useCallback, useReducer, useMemo } =
+        preactHooks;
+      const html = htm.bind(h);
+
+      // --- Sound Manager ---
+      const synth = new Tone.Synth().toDestination();
+      const playSound = (note, duration) => {
+        try {
+          Tone.start();
+          synth.triggerAttackRelease(note, duration);
+        } catch (e) {
+          console.error("Could not play sound:", e);
+        }
+      };
+
+      const SOUNDS = {
+        START: () => playSound("C5", "8n"),
+        REST: () => playSound("A4", "8n"),
+        FINISH: () => playSound("G5", "2n"),
+        TRANSITION: () => playSound("C4", "16n"),
+      };
+
+      // --- Utility Functions ---
+      const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60)
+          .toString()
+          .padStart(2, "0");
+        const secs = (seconds % 60).toString().padStart(2, "0");
+        return `${mins}:${secs}`;
+      };
+
+      const generateId = () =>
+        `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // --- Data Models ---
+      const createInterval = () => ({
+        id: generateId(),
+        name: "Work",
+        duration: 30,
+      });
+      const createBlock = () => ({
+        id: generateId(),
+        repeats: 1,
+        restBetweenIntervals: 10,
+        restBetweenBlocks: 30,
+        intervals: [createInterval()],
+      });
+
+      // --- Reducer for state management ---
+      const workoutReducer = (state, action) => {
+        switch (action.type) {
+          case "SET_WORKOUT":
+            return action.payload;
+          case "UPDATE_WORKOUT_NAME":
+            return { ...state, name: action.payload };
+          case "ADD_BLOCK":
+            return { ...state, blocks: [...state.blocks, createBlock()] };
+          case "REMOVE_BLOCK":
+            return {
+              ...state,
+              blocks: state.blocks.filter((b) => b.id !== action.payload),
+            };
+          case "UPDATE_BLOCK": {
+            const { blockId, field, value } = action.payload;
+            return {
+              ...state,
+              blocks: state.blocks.map((b) =>
+                b.id === blockId ? { ...b, [field]: value } : b
+              ),
+            };
+          }
+          case "ADD_INTERVAL": {
+            const { blockId } = action.payload;
+            return {
+              ...state,
+              blocks: state.blocks.map((b) =>
+                b.id === blockId
+                  ? { ...b, intervals: [...b.intervals, createInterval()] }
+                  : b
+              ),
+            };
+          }
+          case "REMOVE_INTERVAL": {
+            const { blockId, intervalId } = action.payload;
+            return {
+              ...state,
+              blocks: state.blocks.map((b) =>
+                b.id === blockId
+                  ? {
+                      ...b,
+                      intervals: b.intervals.filter((i) => i.id !== intervalId),
+                    }
+                  : b
+              ),
+            };
+          }
+          case "UPDATE_INTERVAL": {
+            const { blockId, intervalId, field, value } = action.payload;
+            return {
+              ...state,
+              blocks: state.blocks.map((b) =>
+                b.id === blockId
+                  ? {
+                      ...b,
+                      intervals: b.intervals.map((i) =>
+                        i.id === intervalId ? { ...i, [field]: value } : i
+                      ),
+                    }
+                  : b
+              ),
+            };
+          }
+          default:
+            return state;
+        }
+      };
+
+      // --- UI Components ---
+      const Input = ({
+        label,
+        value,
+        onChange,
+        type = "number",
+        min = 0,
+        ...props
+      }) => html`
+        <div class="flex flex-col">
+          <label class="text-sm text-gray-400 mb-1">${label}</label>
+          <input
+            type=${type}
+            min=${min}
+            class="bg-gray-700 border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 no-spinner"
+            value=${value}
+            onInput=${(e) =>
+              onChange(
+                type === "number"
+                  ? parseInt(e.currentTarget.value, 10) || 0
+                  : e.currentTarget.value
+              )}
+            ...${props}
+          />
+        </div>
+      `;
+
+      const Button = ({ onClick, children, className = "" }) => html`
+        <button
+          onClick=${onClick}
+          class="px-4 py-2 rounded-md font-semibold transition-colors ${className}"
+        >
+          ${children}
+        </button>
+      `;
+
+      const IconButton = ({ onClick, children, className = "" }) => html`
+        <button
+          onClick=${onClick}
+          class="p-2 rounded-full hover:bg-gray-600 transition-colors ${className}"
+        >
+          ${children}
+        </button>
+      `;
+
+      const IntervalEditor = ({ blockId, interval, dispatch }) => {
+        const { id, name, duration } = interval;
+        return html`
+          <div class="flex items-center gap-2 bg-gray-700 p-3 rounded-lg">
+            <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <${Input}
+                label="Interval Name"
+                type="text"
+                value=${name}
+                placeholder="e.g., Push-ups"
+                onChange=${(val) =>
+                  dispatch({
+                    type: "UPDATE_INTERVAL",
+                    payload: {
+                      blockId,
+                      intervalId: id,
+                      field: "name",
+                      value: val,
+                    },
+                  })}
+              />
+              <${Input}
+                label="Duration (s)"
+                value=${duration}
+                onChange=${(val) =>
+                  dispatch({
+                    type: "UPDATE_INTERVAL",
+                    payload: {
+                      blockId,
+                      intervalId: id,
+                      field: "duration",
+                      value: val,
+                    },
+                  })}
+              />
+            </div>
+            <${IconButton}
+              onClick=${() =>
+                dispatch({
+                  type: "REMOVE_INTERVAL",
+                  payload: { blockId, intervalId: id },
+                })}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            <//>
+          </div>
+        `;
+      };
+
+      const BlockEditor = ({ block, dispatch }) => {
+        const {
+          id,
+          repeats,
+          restBetweenIntervals,
+          restBetweenBlocks,
+          intervals,
+        } = block;
+        return html`
+          <div
+            class="bg-gray-800 p-4 rounded-xl border border-gray-700 space-y-4"
+          >
+            <div class="flex justify-between items-center">
+              <h3 class="text-xl font-bold text-blue-400">Workout Block</h3>
+              <${IconButton}
+                onClick=${() => dispatch({ type: "REMOVE_BLOCK", payload: id })}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-6 w-6 text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              <//>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <${Input}
+                label="Repeat Block"
+                value=${repeats}
+                onChange=${(val) =>
+                  dispatch({
+                    type: "UPDATE_BLOCK",
+                    payload: { blockId: id, field: "repeats", value: val },
+                  })}
+              />
+              <${Input}
+                label="Rest between Intervals (s)"
+                value=${restBetweenIntervals}
+                onChange=${(val) =>
+                  dispatch({
+                    type: "UPDATE_BLOCK",
+                    payload: {
+                      blockId: id,
+                      field: "restBetweenIntervals",
+                      value: val,
+                    },
+                  })}
+              />
+              <${Input}
+                label="Rest after Block (s)"
+                value=${restBetweenBlocks}
+                onChange=${(val) =>
+                  dispatch({
+                    type: "UPDATE_BLOCK",
+                    payload: {
+                      blockId: id,
+                      field: "restBetweenBlocks",
+                      value: val,
+                    },
+                  })}
+              />
+            </div>
+            <div class="space-y-3">
+              <h4 class="font-semibold text-gray-300">Intervals:</h4>
+              ${intervals.map(
+                (interval) =>
+                  html`<${IntervalEditor}
+                    key=${interval.id}
+                    blockId=${id}
+                    interval=${interval}
+                    dispatch=${dispatch}
+                  />`
+              )}
+            </div>
+            <${Button}
+              onClick=${() =>
+                dispatch({ type: "ADD_INTERVAL", payload: { blockId: id } })}
+              className="bg-blue-600 hover:bg-blue-700 w-full"
+            >
+              Add Interval
+            <//>
+          </div>
+        `;
+      };
+
+      const WorkoutBuilder = ({ workout, dispatch, onStart }) => {
+        const [showLoadModal, setShowLoadModal] = useState(false);
+        const [savedWorkouts, setSavedWorkouts] = useState([]);
+
+        useEffect(() => {
+          const loaded = JSON.parse(
+            localStorage.getItem("workoutTimer_workouts") || "{}"
+          );
+          setSavedWorkouts(Object.entries(loaded));
+        }, [showLoadModal]);
+
+        const saveWorkout = () => {
+          if (!workout.name) {
+            alert("Please enter a name for the workout to save it.");
+            return;
+          }
+          const currentWorkouts = JSON.parse(
+            localStorage.getItem("workoutTimer_workouts") || "{}"
+          );
+          currentWorkouts[workout.name] = workout;
+          localStorage.setItem(
+            "workoutTimer_workouts",
+            JSON.stringify(currentWorkouts)
+          );
+          alert(`Workout "${workout.name}" saved!`);
+          setShowLoadModal(false);
+        };
+
+        const loadWorkout = (loadedWorkout) => {
+          dispatch({ type: "SET_WORKOUT", payload: loadedWorkout });
+          setShowLoadModal(false);
+        };
+
+        const deleteWorkout = (workoutName) => {
+          if (confirm(`Are you sure you want to delete "${workoutName}"?`)) {
+            const currentWorkouts = JSON.parse(
+              localStorage.getItem("workoutTimer_workouts") || "{}"
+            );
+            delete currentWorkouts[workoutName];
+            localStorage.setItem(
+              "workoutTimer_workouts",
+              JSON.stringify(currentWorkouts)
+            );
+            setSavedWorkouts(Object.entries(currentWorkouts));
+          }
+        };
+
+        return html`
+          <div class="space-y-6">
+            <div class="text-center">
+              <h1 class="text-4xl font-bold tracking-tight">Interval Timer</h1>
+              <p class="text-gray-400 mt-2">
+                Build your custom workout circuit below.
+              </p>
+            </div>
+
+            <div
+              class="bg-gray-800 p-4 rounded-xl border border-gray-700 space-y-4"
+            >
+              <${Input}
+                label="Workout Name"
+                type="text"
+                value=${workout.name}
+                placeholder="e.g., Full Body HIIT"
+                onChange=${(val) =>
+                  dispatch({ type: "UPDATE_WORKOUT_NAME", payload: val })}
+              />
+            </div>
+
+            ${workout.blocks.map(
+              (block) =>
+                html`<${BlockEditor}
+                  key=${block.id}
+                  block=${block}
+                  dispatch=${dispatch}
+                />`
+            )}
+
+            <div class="flex flex-col sm:flex-row gap-3">
+              <${Button}
+                onClick=${() => dispatch({ type: "ADD_BLOCK" })}
+                className="bg-gray-600 hover:bg-gray-700 flex-1"
+                >Add Workout Block<//
+              >
+              <${Button}
+                onClick=${() => setShowLoadModal(true)}
+                className="bg-gray-600 hover:bg-gray-700 flex-1"
+                >Load Workout<//
+              >
+              <${Button}
+                onClick=${saveWorkout}
+                className="bg-indigo-600 hover:bg-indigo-700 flex-1"
+                >Save Workout<//
+              >
+            </div>
+
+            <${Button}
+              onClick=${onStart}
+              className="bg-green-600 hover:bg-green-700 w-full text-xl py-3"
+            >
+              Start Workout
+            <//>
+
+            ${showLoadModal &&
+            html`
+              <div
+                class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50"
+              >
+                <div
+                  class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md"
+                >
+                  <h2 class="text-2xl font-bold mb-4">Load a Saved Workout</h2>
+                  <div class="space-y-3 max-h-80 overflow-y-auto">
+                    ${savedWorkouts.length > 0
+                      ? savedWorkouts.map(
+                          ([name, savedWorkout]) => html`
+                            <div
+                              class="flex items-center justify-between bg-gray-700 p-3 rounded-md"
+                            >
+                              <span class="font-medium">${name}</span>
+                              <div class="flex items-center gap-2">
+                                <${Button}
+                                  onClick=${() => loadWorkout(savedWorkout)}
+                                  className="bg-blue-600 hover:bg-blue-700 text-sm py-1 px-3"
+                                  >Load<//
+                                >
+                                <${IconButton}
+                                  onClick=${() => deleteWorkout(name)}
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-5 w-5 text-red-400"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      stroke-width="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                <//>
+                              </div>
+                            </div>
+                          `
+                        )
+                      : html`<p class="text-gray-400">
+                          No saved workouts found.
+                        </p>`}
+                  </div>
+                  <${Button}
+                    onClick=${() => setShowLoadModal(false)}
+                    className="bg-gray-600 hover:bg-gray-700 mt-6 w-full"
+                    >Close<//
+                  >
+                </div>
+              </div>
+            `}
+          </div>
+        `;
+      };
+
+      const TimerDisplay = ({ timerState, onPause, onResume, onReset }) => {
+        const {
+          timeLeft,
+          totalDuration,
+          currentPhase,
+          phaseName,
+          blockProgress,
+          setProgress,
+          totalProgress,
+          isPaused,
+        } = timerState;
+
+        const progress = totalDuration > 0 ? timeLeft / totalDuration : 0;
+        const dashOffset = 283 * (1 - progress);
+
+        const getPhaseColor = () => {
+          switch (currentPhase) {
+            case "WORK":
+              return "stroke-green-400";
+            case "REST_INTERVAL":
+              return "stroke-yellow-400";
+            case "REST_BLOCK":
+              return "stroke-blue-400";
+            default:
+              return "stroke-gray-500";
+          }
+        };
+
+        const getPhaseTextColor = () => {
+          switch (currentPhase) {
+            case "WORK":
+              return "text-green-400";
+            case "REST_INTERVAL":
+              return "text-yellow-400";
+            case "REST_BLOCK":
+              return "text-blue-400";
+            default:
+              return "text-gray-500";
+          }
+        };
+
+        return html`
+          <div
+            class="flex flex-col items-center justify-center space-y-6 text-center"
+          >
+            <div class="relative w-64 h-64 sm:w-80 sm:h-80">
+              <svg class="w-full h-full" viewBox="0 0 100 100">
+                <circle
+                  class="stroke-current text-gray-700"
+                  stroke-width="7"
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  fill="transparent"
+                />
+                <circle
+                  class="timer-circle transform -rotate-90 origin-center ${getPhaseColor()}"
+                  stroke-width="7"
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  fill="transparent"
+                  style=${{ strokeDashoffset: dashOffset }}
+                />
+              </svg>
+              <div
+                class="absolute inset-0 flex flex-col items-center justify-center"
+              >
+                <div class="text-6xl sm:text-7xl font-bold tracking-tighter">
+                  ${formatTime(timeLeft)}
+                </div>
+                <div
+                  class="text-2xl sm:text-3xl font-semibold ${getPhaseTextColor()}"
+                >
+                  ${currentPhase.replace("_", " ")}
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <p class="text-xl sm:text-2xl font-medium">${phaseName}</p>
+              <p class="text-lg text-gray-400">${blockProgress}</p>
+              <p class="text-lg text-gray-400">${setProgress}</p>
+            </div>
+
+            <div class="w-full max-w-sm">
+              <div class="w-full bg-gray-700 rounded-full h-2.5">
+                <div
+                  class="bg-blue-500 h-2.5 rounded-full"
+                  style=${{ width: `${totalProgress}%` }}
+                ></div>
+              </div>
+              <p class="text-sm text-gray-400 mt-1">
+                ${Math.round(totalProgress)}% Complete
+              </p>
+            </div>
+
+            <div class="flex gap-4">
+              ${isPaused
+                ? html`<${Button}
+                    onClick=${onResume}
+                    className="bg-green-600 hover:bg-green-700 w-32"
+                    >Resume<//
+                  >`
+                : html`<${Button}
+                    onClick=${onPause}
+                    className="bg-yellow-500 hover:bg-yellow-600 w-32"
+                    >Pause<//
+                  >`}
+              <${Button}
+                onClick=${onReset}
+                className="bg-red-600 hover:bg-red-700 w-32"
+                >Reset<//
+              >
+            </div>
+          </div>
+        `;
+      };
+
+      // --- Main App Component ---
+      const App = () => {
+        const [workout, dispatch] = useReducer(workoutReducer, {
+          name: "My Workout",
+          blocks: [createBlock()],
+        });
+        const [isTimerActive, setTimerActive] = useState(false);
+        const [timerState, setTimerState] = useState({});
+
+        const timerRef = createRef();
+        timerRef.current = null;
+
+        const generateWorkoutQueue = useCallback(() => {
+          const queue = [];
+          let totalWorkoutTime = 0;
+
+          workout.blocks.forEach((block, blockIndex) => {
+            for (let repeat = 0; repeat < block.repeats; repeat++) {
+              block.intervals.forEach((interval, intervalIndex) => {
+                // Add work interval
+                queue.push({
+                  type: "WORK",
+                  duration: interval.duration,
+                  name: interval.name || "Work",
+                  blockIndex,
+                  repeatIndex: repeat,
+                  intervalIndex,
+                });
+                totalWorkoutTime += interval.duration;
+
+                // Add rest between intervals if not the last interval
+                if (
+                  intervalIndex < block.intervals.length - 1 &&
+                  block.restBetweenIntervals > 0
+                ) {
+                  queue.push({
+                    type: "REST_INTERVAL",
+                    duration: block.restBetweenIntervals,
+                    name: "Rest",
+                    blockIndex,
+                    repeatIndex: repeat,
+                    intervalIndex,
+                  });
+                  totalWorkoutTime += block.restBetweenIntervals;
+                }
+              });
+
+              // Add rest between blocks if not the last repeat of the block
+              if (repeat < block.repeats - 1 && block.restBetweenBlocks > 0) {
+                queue.push({
+                  type: "REST_BLOCK",
+                  duration: block.restBetweenBlocks,
+                  name: "Block Rest",
+                  blockIndex,
+                  repeatIndex: repeat,
+                  intervalIndex: block.intervals.length - 1,
+                });
+                totalWorkoutTime += block.restBetweenBlocks;
+              }
+            }
+          });
+          return { queue, totalWorkoutTime };
+        }, [workout]);
+
+        const workoutQueue = useMemo(generateWorkoutQueue, [workout]);
+
+        const stopTimer = useCallback(() => {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+        }, []);
+
+        const startTimer = () => {
+          stopTimer();
+          let { queue, totalWorkoutTime } = workoutQueue;
+          if (queue.length === 0) return;
+
+          let currentQueueIndex = 0;
+          let timeElapsedInPhase = 0;
+          let totalTimeElapsed = 0;
+
+          const tick = () => {
+            const currentPhaseItem = queue[currentQueueIndex];
+            if (!currentPhaseItem) {
+              setTimerState((prev) => ({
+                ...prev,
+                currentPhase: "DONE",
+                phaseName: "Workout Complete!",
+                timeLeft: 0,
+              }));
+              SOUNDS.FINISH();
+              stopTimer();
+              return;
+            }
+
+            totalTimeElapsed++;
+            timeElapsedInPhase++;
+
+            const timeLeftInPhase =
+              currentPhaseItem.duration - timeElapsedInPhase;
+
+            const currentBlock = workout.blocks[currentPhaseItem.blockIndex];
+            const currentInterval =
+              currentBlock.intervals[currentPhaseItem.intervalIndex];
+
+            setTimerState({
+              timeLeft: timeLeftInPhase,
+              totalDuration: currentPhaseItem.duration,
+              currentPhase: currentPhaseItem.type,
+              phaseName: currentPhaseItem.name,
+              blockProgress: `Block ${currentPhaseItem.blockIndex + 1} / ${
+                workout.blocks.length
+              }`,
+              setProgress: `Set ${currentPhaseItem.repeatIndex + 1} / ${
+                currentBlock.repeats
+              }`,
+              totalProgress: (totalTimeElapsed / totalWorkoutTime) * 100,
+              isPaused: false,
+            });
+
+            if (timeLeftInPhase <= 0) {
+              currentQueueIndex++;
+              timeElapsedInPhase = 0;
+              const nextPhase = queue[currentQueueIndex];
+              if (nextPhase) {
+                if (nextPhase.type === "WORK") SOUNDS.START();
+                else SOUNDS.REST();
+              }
+            } else if (timeLeftInPhase <= 3) {
+              SOUNDS.TRANSITION();
+            }
+          };
+
+          // Initial state setup
+          const firstPhase = queue[0];
+          setTimerState({
+            timeLeft: firstPhase.duration,
+            totalDuration: firstPhase.duration,
+            currentPhase: firstPhase.type,
+            phaseName: firstPhase.name,
+            blockProgress: `Block 1 / ${workout.blocks.length}`,
+            setProgress: `Set 1 / ${workout.blocks[0].repeats}`,
+            totalProgress: 0,
+            isPaused: false,
+          });
+          SOUNDS.START();
+
+          timerRef.current = setInterval(tick, 1000);
+        };
+
+        const handleStart = () => {
+          setTimerActive(true);
+          startTimer();
+        };
+
+        const handlePause = () => {
+          stopTimer();
+          setTimerState((prev) => ({ ...prev, isPaused: true }));
+        };
+
+        const handleResume = () => {
+          setTimerState((prev) => ({ ...prev, isPaused: false }));
+
+          // Re-calculate state and resume
+          let { queue, totalWorkoutTime } = workoutQueue;
+          let totalTimeElapsed = 0;
+          let remainingTimeInPhase = timerState.timeLeft;
+
+          for (let i = 0; i < queue.length; i++) {
+            if (
+              queue[i].type === timerState.currentPhase &&
+              queue[i].name === timerState.phaseName
+            ) {
+              // This is a rough approximation. A more robust solution would store queue index.
+              totalTimeElapsed += queue[i].duration - remainingTimeInPhase;
+              break;
+            }
+            totalTimeElapsed += queue[i].duration;
+          }
+
+          let currentQueueIndex = 0;
+          let timeTracker = 0;
+          for (let i = 0; i < queue.length; i++) {
+            timeTracker += queue[i].duration;
+            if (timeTracker >= totalTimeElapsed) {
+              currentQueueIndex = i;
+              break;
+            }
+          }
+
+          let timeElapsedInPhase =
+            totalTimeElapsed -
+            (timeTracker - queue[currentQueueIndex].duration);
+
+          const tick = () => {
+            const currentPhaseItem = queue[currentQueueIndex];
+            if (!currentPhaseItem) {
+              setTimerState((prev) => ({
+                ...prev,
+                currentPhase: "DONE",
+                phaseName: "Workout Complete!",
+                timeLeft: 0,
+              }));
+              SOUNDS.FINISH();
+              stopTimer();
+              return;
+            }
+
+            totalTimeElapsed++;
+            timeElapsedInPhase++;
+
+            const timeLeftInPhase =
+              currentPhaseItem.duration - timeElapsedInPhase;
+
+            const currentBlock = workout.blocks[currentPhaseItem.blockIndex];
+
+            setTimerState({
+              timeLeft: timeLeftInPhase,
+              totalDuration: currentPhaseItem.duration,
+              currentPhase: currentPhaseItem.type,
+              phaseName: currentPhaseItem.name,
+              blockProgress: `Block ${currentPhaseItem.blockIndex + 1} / ${
+                workout.blocks.length
+              }`,
+              setProgress: `Set ${currentPhaseItem.repeatIndex + 1} / ${
+                currentBlock.repeats
+              }`,
+              totalProgress: (totalTimeElapsed / totalWorkoutTime) * 100,
+              isPaused: false,
+            });
+
+            if (timeLeftInPhase <= 0) {
+              currentQueueIndex++;
+              timeElapsedInPhase = 0;
+              const nextPhase = queue[currentQueueIndex];
+              if (nextPhase) {
+                if (nextPhase.type === "WORK") SOUNDS.START();
+                else SOUNDS.REST();
+              }
+            } else if (timeLeftInPhase <= 3) {
+              SOUNDS.TRANSITION();
+            }
+          };
+
+          timerRef.current = setInterval(tick, 1000);
+        };
+
+        const handleReset = () => {
+          stopTimer();
+          setTimerActive(false);
+          setTimerState({});
+        };
+
+        useEffect(() => {
+          // Cleanup timer on component unmount
+          return () => stopTimer();
+        }, [stopTimer]);
+
+        return html`
+          <div class="p-4">
+            ${isTimerActive
+              ? html`<${TimerDisplay}
+                  timerState=${timerState}
+                  onPause=${handlePause}
+                  onResume=${handleResume}
+                  onReset=${handleReset}
+                />`
+              : html`<${WorkoutBuilder}
+                  workout=${workout}
+                  dispatch=${dispatch}
+                  onStart=${handleStart}
+                />`}
+          </div>
+        `;
+      };
+
+      render(html`<${App} />`, document.getElementById("app"));
+    </script>
+  </body>
+</html>
