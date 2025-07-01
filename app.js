@@ -6,6 +6,11 @@ const tools = [
         path: "ai-timeline"
     },
     {
+        name: "Markdown Table Generator",
+        description: "Markdown Output",
+        path: "grid-to-md"
+    },
+    {
         name: "Workout Interval Timer",
         description: "Load a Saved Workout",
         path: "interval-timer"
