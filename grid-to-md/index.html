@@ -10,7 +10,6 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Custom focus style for spreadsheet cells */
         .cell-input:focus {
             outline: 2px solid #3b82f6; /* blue-500 */
             z-index: 10;
@@ -35,15 +34,14 @@
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
 
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-gray-900">Markdown Table Generator</h1>
-            <p class="mt-2 text-lg text-gray-600">A simple grid for creating Markdown tables. Use arrow keys to navigate.</p>
+            <p class="mt-2 text-lg text-gray-600">A simple grid for creating clean, fixed-width Markdown tables.</p>
         </header>
 
-        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Left Side: Input Grid -->
+        <main class="grid grid-cols-1 gap-8">
             <div class="bg-white p-6 rounded-xl shadow-md">
                 <div id="toolbar" class="flex flex-wrap gap-2 mb-4 border-b pb-4">
                     <button id="add-row" class="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors">Add Row</button>
@@ -53,19 +51,17 @@
                 </div>
                 <div id="spreadsheet-container" class="overflow-x-auto">
                     <div id="grid" class="table-grid">
-                        <!-- Grid cells will be generated here -->
-                    </div>
+                        </div>
                 </div>
             </div>
 
-            <!-- Right Side: Markdown Output -->
             <div class="bg-gray-900 p-6 rounded-xl shadow-md">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold text-white">Markdown Output</h2>
+                    <h2 class="text-2xl font-semibold text-white">Formatted Markdown Output</h2>
                     <button id="copy-markdown" class="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition-colors">Copy</button>
                 </div>
                 <div class="relative">
-                    <pre id="markdown-output" class="bg-gray-800 text-gray-200 p-4 rounded-lg whitespace-pre-wrap break-all h-96 overflow-y-auto"></pre>
+                    <pre id="markdown-output" class="bg-gray-800 text-gray-200 p-4 rounded-lg whitespace-pre break-all h-96 overflow-auto font-mono"></pre>
                 </div>
             </div>
         </main>
@@ -74,14 +70,12 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- STATE & CONFIG ---
             let data = [
                 ['Header 1', 'Header 2', 'Header 3'],
-                ['Row 1, Col 1', 'Row 1, Col 2', 'Row 1, Col 3'],
-                ['Row 2, Col 1', 'Row 2, Col 2', 'Row 2, Col 3'],
+                ['Row 1, Col 1', 'Row 1, Col 2', 'A much longer cell'],
+                ['R2C1', 'Row 2, Col 2', 'R2C3'],
             ];
 
-            // --- DOM ELEMENTS ---
             const grid = document.getElementById('grid');
             const markdownOutput = document.getElementById('markdown-output');
             const addRowBtn = document.getElementById('add-row');
@@ -90,11 +84,6 @@
             const removeColBtn = document.getElementById('remove-col');
             const copyBtn = document.getElementById('copy-markdown');
 
-            // --- CORE FUNCTIONS ---
-
-            /**
-             * Renders the entire spreadsheet grid based on the current data state.
-             */
             const renderGrid = () => {
                 grid.innerHTML = '';
                 const cols = data.length > 0 ? data[0].length : 0;
@@ -113,65 +102,70 @@
                         if (rowIndex === 0) {
                             input.classList.add('font-bold', 'bg-gray-100');
                         }
-                        
-                        // Event listeners for data updates and navigation
                         input.addEventListener('input', handleInputChange);
                         input.addEventListener('keydown', handleKeyDown);
-
                         grid.appendChild(input);
                     });
                 });
                 renderMarkdown();
             };
-
-            /**
-             * Generates and displays the Markdown table from the data state.
-             */
+            
             const renderMarkdown = () => {
                 if (data.length === 0 || data[0].length === 0) {
                     markdownOutput.textContent = 'Add some data to see the Markdown table.';
                     return;
                 }
 
+                // 1. Calculate max width for each column
+                const colWidths = data[0].map((_, colIndex) => {
+                    let maxWidth = 3; // Minimum width for '---'
+                    for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+                        const cellLength = data[rowIndex][colIndex] ? data[rowIndex][colIndex].length : 0;
+                        if (cellLength > maxWidth) {
+                            maxWidth = cellLength;
+                        }
+                    }
+                    return maxWidth;
+                });
+
+                // Helper to pad cell content
+                const padCell = (content, width) => (content || '').padEnd(width, ' ');
+
+                // 2. Build the table string
                 let markdown = '';
+
                 // Header row
-                markdown += `| ${data[0].join(' | ')} |\n`;
+                const headerCells = data[0].map((header, i) => padCell(header, colWidths[i]));
+                markdown += `| ${headerCells.join(' | ')} |\n`;
+
                 // Separator row
-                markdown += `|${data[0].map(() => '---').join('|')}|\n`;
+                const separatorCells = colWidths.map(width => '-'.repeat(width));
+                markdown += `| ${separatorCells.join(' | ')} |\n`;
+
                 // Data rows
                 for (let i = 1; i < data.length; i++) {
-                    markdown += `| ${data[i].join(' | ')} |\n`;
+                    const rowCells = data[i].map((cell, j) => padCell(cell, colWidths[j]));
+                    markdown += `| ${rowCells.join(' | ')} |\n`;
                 }
+
                 markdownOutput.textContent = markdown;
             };
 
-            // --- EVENT HANDLERS ---
-
-            /**
-             * Updates the data array when an input cell value changes.
-             * @param {Event} e - The input event object.
-             */
             const handleInputChange = (e) => {
                 const { row, col } = e.target.dataset;
                 data[row][col] = e.target.value;
                 renderMarkdown();
             };
 
-            /**
-             * Handles keyboard navigation and shortcuts.
-             * @param {KeyboardEvent} e - The keydown event object.
-             */
             const handleKeyDown = (e) => {
                 const { row, col } = e.target.dataset;
                 let rowIndex = parseInt(row);
                 let colIndex = parseInt(col);
 
-                // Handle shortcuts for adding rows/columns (Cmd/Ctrl + Shift + Arrow)
                 if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
                     if (e.key === 'ArrowDown') {
                         e.preventDefault();
                         addRow();
-                        // Focus the new cell in the same column
                         const newRowIndex = data.length - 1;
                         const cellToFocus = grid.querySelector(`[data-row='${newRowIndex}'][data-col='${colIndex}']`);
                         if (cellToFocus) cellToFocus.focus();
@@ -180,7 +174,6 @@
                     if (e.key === 'ArrowRight') {
                         e.preventDefault();
                         addColumn();
-                        // Focus the new cell in the same row
                         const newColIndex = data[0].length - 1;
                         const cellToFocus = grid.querySelector(`[data-row='${rowIndex}'][data-col='${newColIndex}']`);
                         if (cellToFocus) cellToFocus.focus();
@@ -188,36 +181,20 @@
                     }
                 }
 
-                // Handle cell navigation
-                let nextRow = rowIndex;
-                let nextCol = colIndex;
-                let shouldNavigate = true;
-
+                let nextRow = rowIndex, nextCol = colIndex, shouldNavigate = true;
                 switch (e.key) {
-                    case 'ArrowUp':
-                        if (rowIndex > 0) nextRow--;
+                    case 'ArrowUp': if (rowIndex > 0) nextRow--; break;
+                    case 'ArrowDown': case 'Enter': if (rowIndex < data.length - 1) nextRow++; break;
+                    case 'ArrowLeft': if (colIndex > 0) nextCol--; break;
+                    case 'ArrowRight': case 'Tab':
+                        if (!e.shiftKey && colIndex < data[0].length - 1) nextCol++;
+                        else if (e.shiftKey && colIndex > 0) nextCol--;
                         break;
-                    case 'ArrowDown':
-                    case 'Enter':
-                        if (rowIndex < data.length - 1) nextRow++;
-                        break;
-                    case 'ArrowLeft':
-                        if (colIndex > 0) nextCol--;
-                        break;
-                    case 'ArrowRight':
-                    case 'Tab':
-                         if (!e.shiftKey && colIndex < data[0].length - 1) {
-                            nextCol++;
-                         } else if (e.shiftKey && colIndex > 0) {
-                            nextCol--;
-                         }
-                        break;
-                    default:
-                        shouldNavigate = false; // Not a navigation key
+                    default: shouldNavigate = false;
                 }
 
                 if (shouldNavigate) {
-                    e.preventDefault(); // Prevent default behavior (e.g., scrolling, tabbing away)
+                    e.preventDefault();
                     const nextCell = grid.querySelector(`[data-row='${nextRow}'][data-col='${nextCol}']`);
                     if (nextCell) {
                         nextCell.focus();
@@ -226,8 +203,6 @@
                 }
             };
 
-            // --- TOOLBAR ACTIONS ---
-
             const addRow = () => {
                 const cols = data.length > 0 ? data[0].length : 1;
                 data.push(Array(cols).fill(''));
@@ -235,18 +210,15 @@
             };
 
             const removeRow = () => {
-                if (data.length > 1) { // Keep at least one row (header)
+                if (data.length > 1) {
                     data.pop();
                     renderGrid();
                 }
             };
 
             const addColumn = () => {
-                if (data.length === 0) { // If table is empty, start with one cell
-                    data.push(['']);
-                } else {
-                    data.forEach(row => row.push(''));
-                }
+                if (data.length === 0) data.push(['']);
+                else data.forEach(row => row.push(''));
                 renderGrid();
             };
 
@@ -263,7 +235,6 @@
                 document.body.appendChild(textarea);
                 textarea.select();
                 try {
-                    // Use execCommand as a fallback for browser compatibility
                     document.execCommand('copy');
                     copyBtn.textContent = 'Copied!';
                     setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
@@ -275,14 +246,13 @@
                 document.body.removeChild(textarea);
             };
 
-            // --- INITIALIZATION ---
             addRowBtn.addEventListener('click', addRow);
             removeRowBtn.addEventListener('click', removeRow);
             addColBtn.addEventListener('click', addColumn);
             removeColBtn.addEventListener('click', removeColumn);
             copyBtn.addEventListener('click', copyToClipboard);
 
-            renderGrid(); // Initial render
+            renderGrid();
         });
     </script>
 </body>
