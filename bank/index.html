@@ -533,7 +533,6 @@
             }
             
             gameStarted = true;
-            activePlayers = [...players];
             currentRound = 1;
             currentRoll = 1;
             communityPot = 0;
@@ -599,12 +598,29 @@
             return rankings;
         }
 
+        function getCurrentPlayer() {
+            // Find the next non-banked player starting from currentPlayerIndex
+            const totalPlayers = players.length;
+            if (totalPlayers === 0) return null;
+            
+            let attempts = 0;
+            while (attempts < totalPlayers) {
+                const index = currentPlayerIndex % totalPlayers;
+                const player = players[index];
+                if (!player.banked) {
+                    return player;
+                }
+                currentPlayerIndex++;
+                attempts++;
+            }
+            return null; // All players have banked
+        }
+
         function updatePlayersGrid() {
             const grid = document.getElementById('playersCompact');
             grid.innerHTML = '';
             
-            const activePlayersThisRound = players.filter(p => !p.banked);
-            const currentPlayer = activePlayersThisRound[currentPlayerIndex % activePlayersThisRound.length];
+            const currentPlayer = getCurrentPlayer();
             const rankings = getPlayerRanking();
             
             players.forEach(player => {
@@ -624,29 +640,58 @@
                                      rankings[player.name] === 3 ? '3rd' : 
                                      rankings[player.name] + 'th';
                 
-                row.innerHTML = `
-                    <div class="player-info">
-                        <div class="player-name">
-                            <span class="place-badge">${placeOrdinal}</span>
-                            ${player.name}
-                        </div>
-                        <div class="player-score">${player.score}</div>
-                    </div>
-                    ${!player.banked && gameStarted ? `<button class="btn bank-btn" onclick="bankPoints('${player.name}')">Bank</button>` : ''}
-                    ${player.banked ? '<div class="banked-label">✓ Banked</div>' : ''}
-                `;
+                // Create elements programmatically to avoid quote escaping issues
+                const playerInfo = document.createElement('div');
+                playerInfo.className = 'player-info';
+                
+                const playerNameDiv = document.createElement('div');
+                playerNameDiv.className = 'player-name';
+                
+                const placeBadge = document.createElement('span');
+                placeBadge.className = 'place-badge';
+                placeBadge.textContent = placeOrdinal;
+                
+                playerNameDiv.appendChild(placeBadge);
+                playerNameDiv.appendChild(document.createTextNode(' ' + player.name));
+                
+                const playerScore = document.createElement('div');
+                playerScore.className = 'player-score';
+                playerScore.textContent = player.score;
+                
+                playerInfo.appendChild(playerNameDiv);
+                playerInfo.appendChild(playerScore);
+                row.appendChild(playerInfo);
+                
+                if (!player.banked && gameStarted) {
+                    const bankBtn = document.createElement('button');
+                    bankBtn.className = 'btn bank-btn';
+                    bankBtn.textContent = 'Bank';
+                    bankBtn.onclick = () => bankPoints(player.name);
+                    row.appendChild(bankBtn);
+                } else if (player.banked) {
+                    const bankedLabel = document.createElement('div');
+                    bankedLabel.className = 'banked-label';
+                    bankedLabel.textContent = '✓ Banked';
+                    row.appendChild(bankedLabel);
+                }
                 
                 grid.appendChild(row);
             });
         }
 
         function recordRoll(value) {
-            const activePlayersThisRound = players.filter(p => !p.banked);
-            if (activePlayersThisRound.length === 0) {
+            if (tieBreaker) {
+                handleTieBreakerRoll(value);
+                return;
+            }
+            
+            const currentPlayer = getCurrentPlayer();
+            if (!currentPlayer) {
                 nextRound();
                 return;
             }
             
+            // Handle the roll based on current roll number and value
             if (currentRoll <= 3) {
                 // First 3 rolls (collective, not per player)
                 if (value === 7) {
@@ -658,6 +703,7 @@
                 // Roll 4 and beyond
                 if (value === 7) {
                     // Seven terminates the round
+                    nextPlayer();  // Move to next player before ending round
                     nextRound();
                     return;
                 } else {
@@ -665,7 +711,7 @@
                 }
             }
             
-            // Increment roll counter and move to next player
+            // Always increment roll counter and move to next player after a successful roll
             currentRoll++;
             nextPlayer();
         }
@@ -682,13 +728,17 @@
         }
 
         function nextPlayer() {
-            const activePlayersThisRound = players.filter(p => !p.banked);
+            // Move to the next player in the absolute order
+            currentPlayerIndex++;
             
-            // Move to next active player
-            currentPlayerIndex = (currentPlayerIndex + 1) % activePlayersThisRound.length;
+            // Make sure we're pointing to a non-banked player
+            const player = getCurrentPlayer(); // This will advance currentPlayerIndex if needed
             
-            updateGameDisplay();
-            updatePlayersGrid();
+            // If no players available, don't update display (round should end)
+            if (player) {
+                updateGameDisplay();
+                updatePlayersGrid();
+            }
         }
 
         function bankPoints(playerName) {
@@ -697,35 +747,17 @@
                 player.score += communityPot;
                 player.banked = true;
                 
-                const activePlayersThisRound = players.filter(p => !p.banked);
-                
-                // If the current player banked, we need to adjust the index
-                if (activePlayersThisRound.length > 0) {
-                    // Find the index of the current player in the original active players list
-                    const previousActivePlayers = players.filter(p => !p.banked || p === player);
-                    const currentPlayerName = previousActivePlayers[currentPlayerIndex % previousActivePlayers.length].name;
-                    
-                    // If the banking player was the current roller, stay at same index (which moves to next player)
-                    // Otherwise, find the new index of the current roller in the reduced list
-                    if (currentPlayerName !== playerName) {
-                        // Find where the current roller is in the new active players list
-                        const currentRoller = players.find(p => p.name === currentPlayerName);
-                        const newIndex = activePlayersThisRound.indexOf(currentRoller);
-                        if (newIndex !== -1) {
-                            currentPlayerIndex = newIndex;
-                        }
-                    } else {
-                        // Current player banked, so stay at same index (next player in line)
-                        currentPlayerIndex = currentPlayerIndex % activePlayersThisRound.length;
-                    }
-                }
-                
-                updateGameDisplay();
-                updatePlayersGrid();
-                
                 // Check if all players have banked
+                const activePlayersThisRound = players.filter(p => !p.banked);
                 if (activePlayersThisRound.length === 0) {
+                    // Everyone has banked - advance to next player before starting new round
+                    currentPlayerIndex++;
                     nextRound();
+                } else {
+                    // Make sure currentPlayerIndex points to a non-banked player
+                    getCurrentPlayer();
+                    updateGameDisplay();
+                    updatePlayersGrid();
                 }
             }
         }
@@ -739,7 +771,7 @@
             currentRound++;
             currentRoll = 1;
             communityPot = 0;
-            // Don't reset currentPlayerIndex - keep the same player's turn
+            // Don't reset currentPlayerIndex - keep our position in the rotation
             
             // Reset all players' banked status
             players.forEach(p => p.banked = false);
@@ -817,44 +849,6 @@
             const sevenBtn = document.getElementById('seven-btn');
             sevenBtn.classList.add('danger-seven');
             sevenBtn.innerHTML = '7 ☠️';
-        }
-        
-        function recordRoll(value) {
-            if (tieBreaker) {
-                handleTieBreakerRoll(value);
-                return;
-            }
-            
-            const currentPlayer = getCurrentPlayer();
-            if (!currentPlayer) {
-                nextRound();
-                return;
-            }
-            
-            if (currentRoll <= 3) {
-                // First 3 rolls (collective, not per player)
-                if (value === 7) {
-                    communityPot += 70;
-                } else {
-                    communityPot += value;
-                }
-                // Increment roll counter and move to next player
-                currentRoll++;
-                nextPlayer();
-            } else {
-                // Roll 4 and beyond
-                if (value === 7) {
-                    // Seven terminates the round, but still advance to next player first
-                    nextPlayer();
-                    nextRound();
-                    return;
-                } else {
-                    communityPot += value;
-                    // Increment roll counter and move to next player
-                    currentRoll++;
-                    nextPlayer();
-                }
-            }
         }
         
         function handleTieBreakerRoll(value) {
