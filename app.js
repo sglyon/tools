@@ -6,8 +6,13 @@ const tools = [
         path: "ai-timeline"
     },
     {
+        name: "Bank - Dice Game Scorekeeper",
+        description: "Game Setup",
+        path: "bank"
+    },
+    {
         name: "Markdown Table Generator",
-        description: "Markdown Output",
+        description: "Formatted Markdown Output",
         path: "grid-to-md"
     },
     {
