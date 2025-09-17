@@ -1,817 +1,929 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bank - Dice Game Scorekeeper</title>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      body {
-        font-family: "Georgia", serif;
-        background: linear-gradient(135deg, #0d3d0d 0%, #1a5c1a 100%);
-        min-height: 100vh;
-        color: #f4e5c2;
-        padding: 20px;
-      }
-
-      .container {
-        max-width: 900px;
-        margin: 0 auto;
-      }
-
-      h1 {
-        text-align: center;
-        font-size: 3em;
-        color: #ffd700;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-        margin-bottom: 30px;
-        font-weight: 300;
-        letter-spacing: 3px;
-      }
-
-      .card {
-        background: rgba(0, 0, 0, 0.4);
-        border: 2px solid #ffd700;
-        border-radius: 10px;
-        padding: 25px;
-        margin-bottom: 20px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      }
-
-      .setup-section h2,
-      .game-section h2 {
-        color: #ffd700;
-        margin-bottom: 20px;
-        font-size: 1.5em;
-        font-weight: 300;
-      }
-
-      /* Player Input Section */
-      .player-input-container {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 15px;
-      }
-
-      input[type="text"] {
-        flex: 1;
-        padding: 10px 15px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid #ffd700;
-        border-radius: 5px;
-        color: #f4e5c2;
-        font-size: 16px;
-      }
-
-      input[type="text"]:focus {
-        outline: none;
-        background: rgba(255, 255, 255, 0.15);
-        box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-      }
-
-      input[type="text"]::placeholder {
-        color: rgba(244, 229, 194, 0.5);
-      }
-
-      .btn {
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #ffd700, #ffed4e);
-        color: #0d3d0d;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: all 0.3s;
-        font-size: 16px;
-      }
-
-      .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
-      }
-
-      .btn:active {
-        transform: translateY(0);
-      }
-
-      .btn-remove {
-        background: linear-gradient(135deg, #dc3545, #c82333);
-        color: white;
-        padding: 5px 15px;
-        margin-left: 10px;
-      }
-
-      .btn-secondary {
-        background: linear-gradient(135deg, #6c757d, #5a6268);
-        color: white;
-      }
-
-      .player-list {
-        margin-top: 15px;
-      }
-
-      .player-item {
-        background: rgba(255, 255, 255, 0.05);
-        padding: 10px;
-        margin-bottom: 8px;
-        border-radius: 5px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      /* Round Selection */
-      .round-buttons {
-        display: flex;
-        gap: 15px;
-        margin-top: 15px;
-      }
-
-      .round-btn {
-        flex: 1;
-        padding: 15px;
-        font-size: 1.2em;
-      }
-
-      .round-btn.selected {
-        background: linear-gradient(135deg, #28a745, #218838);
-        color: white;
-      }
-
-      /* Game Section */
-      .game-section {
-        display: none;
-      }
-
-      .game-info {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 15px;
-        flex-wrap: wrap;
-      }
-
-      .info-box {
-        flex: 1;
-        min-width: 70px;
-        text-align: center;
-        padding: 8px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-      }
-
-      .info-label {
-        color: #ffd700;
-        font-size: 0.7em;
-        margin-bottom: 2px;
-      }
-
-      .info-value {
-        font-size: 1.2em;
-        font-weight: bold;
-      }
-
-      /* Dice Buttons */
-      .dice-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
-        margin: 15px 0;
-      }
-
-      .dice-btn {
-        padding: 15px 5px;
-        font-size: 1.2em;
-        background: linear-gradient(135deg, #2c5f2d, #4a7c59);
-        border: 2px solid #ffd700;
-        color: #ffd700;
-        font-weight: bold;
-      }
-
-      .dice-btn:hover {
-        background: linear-gradient(135deg, #4a7c59, #2c5f2d);
-      }
-
-      .dice-btn.danger-seven {
-        background: linear-gradient(135deg, #8b0000, #dc143c);
-        border: 3px solid #ff0000;
-        animation: pulse 1.5s infinite;
-        box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
-      }
-
-      @keyframes pulse {
-        0% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.05);
-        }
-        100% {
-          transform: scale(1);
-        }
-      }
-
-      .dice-btn.danger-seven:hover {
-        background: linear-gradient(135deg, #dc143c, #8b0000);
-      }
-
-      .special-btn {
-        background: linear-gradient(135deg, #8b0000, #dc143c);
-        grid-column: span 4;
-      }
-
-      .special-btn:hover {
-        background: linear-gradient(135deg, #dc143c, #8b0000);
-      }
-
-      .special-btn.disabled {
-        background: linear-gradient(135deg, #6c757d, #5a6268);
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .special-btn.disabled:hover {
-        background: linear-gradient(135deg, #6c757d, #5a6268);
-        transform: none;
-        box-shadow: none;
-      }
-
-      /* Player Scores - Compact Mobile View */
-      .players-section {
-        margin-top: 15px;
-      }
-
-      .players-section h2 {
-        font-size: 1.2em;
-        margin-bottom: 10px;
-      }
-
-      .players-compact {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .player-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(255, 255, 255, 0.05);
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 215, 0, 0.3);
-      }
-
-      .player-row.active {
-        background: linear-gradient(
-          135deg,
-          rgba(255, 215, 0, 0.3),
-          rgba(255, 215, 0, 0.1)
-        );
-        border: 2px solid #ffd700;
-      }
-
-      .player-row.banked {
-        opacity: 0.6;
-        background: rgba(0, 100, 0, 0.2);
-      }
-
-      .player-info {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        flex: 1;
-      }
-
-      .player-name {
-        font-size: 1em;
-        color: #ffd700;
-        min-width: 80px;
-      }
-
-      .player-score {
-        font-size: 1.3em;
-        font-weight: bold;
-      }
-
-      .bank-btn {
-        padding: 6px 12px;
-        font-size: 0.85em;
-      }
-
-      .banked-label {
-        color: #28a745;
-        font-size: 0.9em;
-      }
-
-      /* Responsive adjustments */
-      @media (min-width: 768px) {
-        .dice-grid {
-          grid-template-columns: repeat(6, 1fr);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        .special-btn {
-          grid-column: span 6;
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #0d3d0d 0%, #1a5c1a 100%);
+            min-height: 100vh;
+            color: #f4e5c2;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            color: #ffd700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 3px;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .setup-section h2, .game-section h2 {
+            color: #ffd700;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            font-weight: 300;
+        }
+
+        /* Player Input Section */
+        .player-input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #ffd700;
+            border-radius: 5px;
+            color: #f4e5c2;
+            font-size: 16px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(244, 229, 194, 0.5);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            color: #0d3d0d;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-remove {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            padding: 5px 15px;
+            margin-left: 10px;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            color: white;
+        }
+
+        .player-list {
+            margin-top: 15px;
+        }
+
+        .player-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Round Selection */
+        .round-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .round-btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 1.2em;
+        }
+
+        .round-btn.selected {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: white;
+        }
+
+        /* Game Section */
+        .game-section {
+            display: none;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
         .info-box {
-          padding: 12px;
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .info-label {
+            color: #ffd700;
+            font-size: 0.8em;
+            margin-bottom: 5px;
         }
 
         .info-value {
-          font-size: 1.5em;
+            font-size: 1.5em;
+            font-weight: bold;
         }
-      }
-
-      /* Winner Modal */
-      .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 1000;
-        justify-content: center;
-        align-items: center;
-      }
-
-      .modal-content {
-        background: linear-gradient(135deg, #0d3d0d, #1a5c1a);
-        border: 3px solid #ffd700;
-        border-radius: 15px;
-        padding: 40px;
-        text-align: center;
-        max-width: 500px;
-        animation: celebrate 0.5s ease-out;
-      }
-
-      @keyframes celebrate {
-        0% {
-          transform: scale(0.5);
-          opacity: 0;
+        
+        .pot-value {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #ffd700;
         }
-        100% {
-          transform: scale(1);
-          opacity: 1;
+
+        /* Dice Buttons */
+        .dice-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 15px 0;
         }
-      }
 
-      .winner-text {
-        font-size: 2.5em;
-        color: #ffd700;
-        margin-bottom: 20px;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-      }
+        .dice-btn {
+            padding: 15px 5px;
+            font-size: 1.2em;
+            background: linear-gradient(135deg, #2c5f2d, #4a7c59);
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            font-weight: bold;
+        }
 
-      .final-scores {
-        margin: 20px 0;
-        text-align: left;
-      }
+        .dice-btn:hover {
+            background: linear-gradient(135deg, #4a7c59, #2c5f2d);
+        }
 
-      .final-score-item {
-        padding: 8px;
-        margin: 5px 0;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 5px;
-        display: flex;
-        justify-content: space-between;
-      }
+        .dice-btn.danger-seven {
+            background: linear-gradient(135deg, #8b0000, #dc143c);
+            border: 3px solid #ff0000;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
 
-      .hidden {
-        display: none !important;
-      }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .dice-btn.danger-seven:hover {
+            background: linear-gradient(135deg, #dc143c, #8b0000);
+        }
+
+        .special-btn {
+            background: linear-gradient(135deg, #8b0000, #dc143c);
+            grid-column: span 4;
+        }
+
+        .special-btn:hover {
+            background: linear-gradient(135deg, #dc143c, #8b0000);
+        }
+
+        .special-btn.disabled {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .special-btn.disabled:hover {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Player Scores - Compact Mobile View */
+        .players-section {
+            margin-top: 15px;
+        }
+
+        .players-section h2 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .players-compact {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .player-row.active {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.1));
+            border: 2px solid #ffd700;
+        }
+
+        .player-row.banked {
+            opacity: 0.6;
+            background: rgba(0, 100, 0, 0.2);
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .player-name {
+            font-size: 1em;
+            color: #ffd700;
+            min-width: 100px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .place-badge {
+            background: rgba(255, 215, 0, 0.2);
+            color: #ffd700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .player-score {
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .bank-btn {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        .banked-label {
+            color: #28a745;
+            font-size: 0.9em;
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 768px) {
+            .dice-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+            
+            .special-btn {
+                grid-column: span 6;
+            }
+            
+            .info-box {
+                padding: 12px;
+            }
+            
+            .info-value {
+                font-size: 1.5em;
+            }
+        }
+
+        /* Winner Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #0d3d0d, #1a5c1a);
+            border: 3px solid #ffd700;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            animation: celebrate 0.5s ease-out;
+        }
+
+        @keyframes celebrate {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .winner-text {
+            font-size: 2.5em;
+            color: #ffd700;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .final-scores {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .final-score-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container">
-      <h1>♠ BANK ♦</h1>
-
-      <!-- Setup Section -->
-      <div class="setup-section card">
-        <h2>Game Setup</h2>
-
-        <!-- Player Input -->
-        <div class="player-input-container">
-          <input
-            type="text"
-            id="playerNameInput"
-            placeholder="Enter player name"
-          />
-          <button class="btn" onclick="addPlayer()">+ Add Player</button>
+        <h1>♠ BANK ♦</h1>
+        
+        <!-- Setup Section -->
+        <div class="setup-section card">
+            <h2>Game Setup</h2>
+            
+            <!-- Player Input -->
+            <div class="player-input-container">
+                <input type="text" id="playerNameInput" placeholder="Enter player name" />
+                <button class="btn" onclick="addPlayer()">+ Add Player</button>
+            </div>
+            
+            <div class="player-list" id="playerList"></div>
+            
+            <!-- Round Selection -->
+            <h2 style="margin-top: 30px;">Select Rounds</h2>
+            <div class="round-buttons">
+                <button class="btn round-btn" onclick="selectRounds(10)">10 Rounds</button>
+                <button class="btn round-btn" onclick="selectRounds(15)">15 Rounds</button>
+                <button class="btn round-btn" onclick="selectRounds(20)">20 Rounds</button>
+            </div>
+            
+            <button class="btn" style="width: 100%; margin-top: 30px; padding: 15px; font-size: 1.3em;" onclick="startGame()">Start Game</button>
         </div>
-
-        <div class="player-list" id="playerList"></div>
-
-        <!-- Round Selection -->
-        <h2 style="margin-top: 30px">Select Rounds</h2>
-        <div class="round-buttons">
-          <button class="btn round-btn" onclick="selectRounds(10)">
-            10 Rounds
-          </button>
-          <button class="btn round-btn" onclick="selectRounds(15)">
-            15 Rounds
-          </button>
-          <button class="btn round-btn" onclick="selectRounds(20)">
-            20 Rounds
-          </button>
+        
+        <!-- Game Section -->
+        <div class="game-section card">
+            <div class="game-info">
+                <div class="info-box">
+                    <div class="info-label" id="roundLabel">Round</div>
+                    <div class="info-value" id="currentRound">1 / 10</div>
+                </div>
+                <div class="info-box">
+                    <div class="info-label">Community Pot</div>
+                    <div class="pot-value" id="communityPot">0</div>
+                </div>
+            </div>
+            
+            <h2 id="rollTitle">Roll Result</h2>
+            <div class="dice-grid" id="diceGrid">
+                <button class="btn dice-btn" onclick="recordRoll(2)">2</button>
+                <button class="btn dice-btn" onclick="recordRoll(3)">3</button>
+                <button class="btn dice-btn" onclick="recordRoll(4)">4</button>
+                <button class="btn dice-btn" onclick="recordRoll(5)">5</button>
+                <button class="btn dice-btn" onclick="recordRoll(6)">6</button>
+                <button class="btn dice-btn" id="seven-btn" onclick="recordRoll(7)">7</button>
+                <button class="btn dice-btn" onclick="recordRoll(8)">8</button>
+                <button class="btn dice-btn" onclick="recordRoll(9)">9</button>
+                <button class="btn dice-btn" onclick="recordRoll(10)">10</button>
+                <button class="btn dice-btn" onclick="recordRoll(11)">11</button>
+                <button class="btn dice-btn" onclick="recordRoll(12)">12</button>
+                <button class="btn special-btn" id="doubles-btn" onclick="recordDoubles()">DOUBLES</button>
+            </div>
+            
+            <div class="players-section">
+                <h2>Players</h2>
+                <div class="players-compact" id="playersCompact"></div>
+            </div>
         </div>
-
-        <button
-          class="btn"
-          style="width: 100%; margin-top: 30px; padding: 15px; font-size: 1.3em"
-          onclick="startGame()"
-        >
-          Start Game
-        </button>
-      </div>
-
-      <!-- Game Section -->
-      <div class="game-section card">
-        <div class="game-info">
-          <div class="info-box">
-            <div class="info-label">Round</div>
-            <div class="info-value" id="currentRound">1 / 10</div>
-          </div>
-          <div class="info-box">
-            <div class="info-label">Roll #</div>
-            <div class="info-value" id="rollNumber">1</div>
-          </div>
-          <div class="info-box">
-            <div class="info-label">Community Pot</div>
-            <div class="info-value" id="communityPot">0</div>
-          </div>
+        
+        <!-- Winner Modal -->
+        <div class="modal" id="winnerModal">
+            <div class="modal-content">
+                <div class="winner-text">🎉 Winner! 🎉</div>
+                <div id="winnerName" style="font-size: 2em; color: #ffd700; margin-bottom: 20px;"></div>
+                <div class="final-scores" id="finalScores"></div>
+                <button class="btn" style="margin-top: 20px;" onclick="resetGame()">New Game</button>
+            </div>
         </div>
-
-        <h2>Roll Result</h2>
-        <div class="dice-grid">
-          <button class="btn dice-btn" onclick="recordRoll(2)">2</button>
-          <button class="btn dice-btn" onclick="recordRoll(3)">3</button>
-          <button class="btn dice-btn" onclick="recordRoll(4)">4</button>
-          <button class="btn dice-btn" onclick="recordRoll(5)">5</button>
-          <button class="btn dice-btn" onclick="recordRoll(6)">6</button>
-          <button class="btn dice-btn" id="seven-btn" onclick="recordRoll(7)">
-            7
-          </button>
-          <button class="btn dice-btn" onclick="recordRoll(8)">8</button>
-          <button class="btn dice-btn" onclick="recordRoll(9)">9</button>
-          <button class="btn dice-btn" onclick="recordRoll(10)">10</button>
-          <button class="btn dice-btn" onclick="recordRoll(11)">11</button>
-          <button class="btn dice-btn" onclick="recordRoll(12)">12</button>
-          <button
-            class="btn special-btn"
-            id="doubles-btn"
-            onclick="recordDoubles()"
-          >
-            DOUBLES
-          </button>
-        </div>
-
-        <div class="players-section">
-          <h2>Players</h2>
-          <div class="players-compact" id="playersCompact"></div>
-        </div>
-      </div>
-
-      <!-- Winner Modal -->
-      <div class="modal" id="winnerModal">
-        <div class="modal-content">
-          <div class="winner-text">🎉 Winner! 🎉</div>
-          <div
-            id="winnerName"
-            style="font-size: 2em; color: #ffd700; margin-bottom: 20px"
-          ></div>
-          <div class="final-scores" id="finalScores"></div>
-          <button class="btn" style="margin-top: 20px" onclick="resetGame()">
-            New Game
-          </button>
-        </div>
-      </div>
     </div>
 
     <script>
-      let players = [];
-      let totalRounds = 10;
-      let currentRound = 1;
-      let currentRoll = 1;
-      let communityPot = 0;
-      let currentPlayerIndex = 0;
-      let activePlayers = [];
-      let gameStarted = false;
+        let players = [];
+        let totalRounds = 10;
+        let currentRound = 1;
+        let currentRoll = 1;
+        let communityPot = 0;
+        let currentPlayerIndex = 0;  // This tracks the absolute position in the full players array
+        let gameStarted = false;
+        let tieBreaker = false;
+        let tieBreakerPlayers = [];
+        let tieBreakerCurrentIndex = 0;
 
-      // Setup functions
-      function addPlayer() {
-        const input = document.getElementById("playerNameInput");
-        const name = input.value.trim();
-
-        if (name && !players.some((p) => p.name === name)) {
-          players.push({
-            name: name,
-            score: 0,
-            banked: false,
-          });
-          input.value = "";
-          updatePlayerList();
+        // Setup functions
+        function addPlayer() {
+            const input = document.getElementById('playerNameInput');
+            const name = input.value.trim();
+            
+            if (name && !players.some(p => p.name === name)) {
+                players.push({
+                    name: name,
+                    score: 0,
+                    banked: false
+                });
+                input.value = '';
+                updatePlayerList();
+            }
         }
-      }
 
-      // Allow Enter key to add player
-      document
-        .getElementById("playerNameInput")
-        .addEventListener("keypress", function (e) {
-          if (e.key === "Enter") {
-            addPlayer();
-          }
+        // Allow Enter key to add player
+        document.getElementById('playerNameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addPlayer();
+            }
         });
 
-      function removePlayer(name) {
-        players = players.filter((p) => p.name !== name);
-        updatePlayerList();
-      }
+        function removePlayer(name) {
+            players = players.filter(p => p.name !== name);
+            updatePlayerList();
+        }
 
-      function updatePlayerList() {
-        const list = document.getElementById("playerList");
-        list.innerHTML = "";
-
-        players.forEach((player) => {
-          const item = document.createElement("div");
-          item.className = "player-item";
-          item.innerHTML = `
+        function updatePlayerList() {
+            const list = document.getElementById('playerList');
+            list.innerHTML = '';
+            
+            players.forEach(player => {
+                const item = document.createElement('div');
+                item.className = 'player-item';
+                item.innerHTML = `
                     <span>${player.name}</span>
                     <button class="btn btn-remove" onclick="removePlayer('${player.name}')">×</button>
                 `;
-          list.appendChild(item);
-        });
-      }
-
-      function selectRounds(rounds) {
-        totalRounds = rounds;
-        document.querySelectorAll(".round-btn").forEach((btn) => {
-          btn.classList.remove("selected");
-        });
-        event.target.classList.add("selected");
-      }
-
-      function startGame() {
-        if (players.length < 2) {
-          alert("Please add at least 2 players to start the game");
-          return;
+                list.appendChild(item);
+            });
         }
 
-        gameStarted = true;
-        activePlayers = [...players];
-        currentRound = 1;
-        currentRoll = 1;
-        communityPot = 0;
-        currentPlayerIndex = 0;
-
-        // Reset all players
-        players.forEach((p) => {
-          p.score = 0;
-          p.banked = false;
-        });
-
-        document.querySelector(".setup-section").style.display = "none";
-        document.querySelector(".game-section").style.display = "block";
-
-        updateGameDisplay();
-        updatePlayersGrid();
-      }
-
-      // Game functions
-      function updateGameDisplay() {
-        document.getElementById(
-          "currentRound"
-        ).textContent = `${currentRound} / ${totalRounds}`;
-        document.getElementById("rollNumber").textContent = currentRoll;
-        document.getElementById("communityPot").textContent = communityPot;
-
-        // Update the 7 button to show danger after roll 3
-        const sevenBtn = document.getElementById("seven-btn");
-        if (currentRoll > 3) {
-          sevenBtn.classList.add("danger-seven");
-          sevenBtn.innerHTML = "7";
-        } else {
-          sevenBtn.classList.remove("danger-seven");
-          sevenBtn.innerHTML = "7";
+        function selectRounds(rounds) {
+            totalRounds = rounds;
+            document.querySelectorAll('.round-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
         }
 
-        // Update the doubles button to show disabled before roll 4
-        const doublesBtn = document.getElementById("doubles-btn");
-        if (currentRoll <= 3) {
-          doublesBtn.classList.add("disabled");
-        } else {
-          doublesBtn.classList.remove("disabled");
+        function startGame() {
+            if (players.length < 2) {
+                alert('Please add at least 2 players to start the game');
+                return;
+            }
+            
+            gameStarted = true;
+            currentRound = 1;
+            currentRoll = 1;
+            communityPot = 0;
+            currentPlayerIndex = 0;
+            
+            // Reset all players
+            players.forEach(p => {
+                p.score = 0;
+                p.banked = false;
+            });
+            
+            document.querySelector('.setup-section').style.display = 'none';
+            document.querySelector('.game-section').style.display = 'block';
+            
+            updateGameDisplay();
+            updatePlayersGrid();
         }
-      }
 
-      function updatePlayersGrid() {
-        const grid = document.getElementById("playersCompact");
-        grid.innerHTML = "";
+        // Game functions
+        function updateGameDisplay() {
+            document.getElementById('currentRound').textContent = `${currentRound} / ${totalRounds}`;
+            document.getElementById('communityPot').textContent = communityPot;
+            
+            // Update the 7 button to show danger after roll 3
+            const sevenBtn = document.getElementById('seven-btn');
+            if (currentRoll > 3) {
+                sevenBtn.classList.add('danger-seven');
+                sevenBtn.innerHTML = '7';
+            } else {
+                sevenBtn.classList.remove('danger-seven');
+                sevenBtn.innerHTML = '7';
+            }
+            
+            // Update the doubles button to show disabled before roll 4
+            const doublesBtn = document.getElementById('doubles-btn');
+            if (currentRoll <= 3) {
+                doublesBtn.classList.add('disabled');
+            } else {
+                doublesBtn.classList.remove('disabled');
+            }
+        }
+        
+        function getPlayerRanking() {
+            // Create a sorted array of players by score
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            const rankings = {};
+            
+            let currentRank = 1;
+            let previousScore = -1;
+            let playersWithSameScore = 0;
+            
+            sortedPlayers.forEach((player, index) => {
+                if (player.score !== previousScore) {
+                    currentRank = index + 1;
+                    playersWithSameScore = 1;
+                } else {
+                    playersWithSameScore++;
+                }
+                rankings[player.name] = currentRank;
+                previousScore = player.score;
+            });
+            
+            return rankings;
+        }
 
-        const activePlayersThisRound = players.filter((p) => !p.banked);
-        const currentPlayer =
-          activePlayersThisRound[
-            currentPlayerIndex % activePlayersThisRound.length
-          ];
+        function getCurrentPlayer() {
+            // Find the next non-banked player starting from currentPlayerIndex
+            const totalPlayers = players.length;
+            if (totalPlayers === 0) return null;
+            
+            let attempts = 0;
+            while (attempts < totalPlayers) {
+                const index = currentPlayerIndex % totalPlayers;
+                const player = players[index];
+                if (!player.banked) {
+                    return player;
+                }
+                currentPlayerIndex++;
+                attempts++;
+            }
+            return null; // All players have banked
+        }
 
-        players.forEach((player) => {
-          const row = document.createElement("div");
-          row.className = "player-row";
+        function updatePlayersGrid() {
+            const grid = document.getElementById('playersCompact');
+            grid.innerHTML = '';
+            
+            const currentPlayer = getCurrentPlayer();
+            const rankings = getPlayerRanking();
+            
+            players.forEach(player => {
+                const row = document.createElement('div');
+                row.className = 'player-row';
+                
+                if (player === currentPlayer && !player.banked) {
+                    row.classList.add('active');
+                }
+                
+                if (player.banked) {
+                    row.classList.add('banked');
+                }
+                
+                const placeOrdinal = rankings[player.name] === 1 ? '1st' : 
+                                     rankings[player.name] === 2 ? '2nd' : 
+                                     rankings[player.name] === 3 ? '3rd' : 
+                                     rankings[player.name] + 'th';
+                
+                // Create elements programmatically to avoid quote escaping issues
+                const playerInfo = document.createElement('div');
+                playerInfo.className = 'player-info';
+                
+                const playerNameDiv = document.createElement('div');
+                playerNameDiv.className = 'player-name';
+                
+                const placeBadge = document.createElement('span');
+                placeBadge.className = 'place-badge';
+                placeBadge.textContent = placeOrdinal;
+                
+                playerNameDiv.appendChild(placeBadge);
+                playerNameDiv.appendChild(document.createTextNode(' ' + player.name));
+                
+                const playerScore = document.createElement('div');
+                playerScore.className = 'player-score';
+                playerScore.textContent = player.score;
+                
+                playerInfo.appendChild(playerNameDiv);
+                playerInfo.appendChild(playerScore);
+                row.appendChild(playerInfo);
+                
+                if (!player.banked && gameStarted) {
+                    const bankBtn = document.createElement('button');
+                    bankBtn.className = 'btn bank-btn';
+                    bankBtn.textContent = 'Bank';
+                    bankBtn.onclick = () => bankPoints(player.name);
+                    row.appendChild(bankBtn);
+                } else if (player.banked) {
+                    const bankedLabel = document.createElement('div');
+                    bankedLabel.className = 'banked-label';
+                    bankedLabel.textContent = '✓ Banked';
+                    row.appendChild(bankedLabel);
+                }
+                
+                grid.appendChild(row);
+            });
+        }
 
-          if (player === currentPlayer && !player.banked) {
-            row.classList.add("active");
-          }
+        function recordRoll(value) {
+            if (tieBreaker) {
+                handleTieBreakerRoll(value);
+                return;
+            }
+            
+            const currentPlayer = getCurrentPlayer();
+            if (!currentPlayer) {
+                nextRound();
+                return;
+            }
+            
+            // Handle the roll based on current roll number and value
+            if (currentRoll <= 3) {
+                // First 3 rolls (collective, not per player)
+                if (value === 7) {
+                    communityPot += 70;
+                } else {
+                    communityPot += value;
+                }
+            } else {
+                // Roll 4 and beyond
+                if (value === 7) {
+                    // Seven terminates the round
+                    nextPlayer();  // Move to next player before ending round
+                    nextRound();
+                    return;
+                } else {
+                    communityPot += value;
+                }
+            }
+            
+            // Always increment roll counter and move to next player after a successful roll
+            currentRoll++;
+            nextPlayer();
+        }
 
-          if (player.banked) {
-            row.classList.add("banked");
-          }
+        function recordDoubles() {
+            if (currentRoll <= 3) {
+                alert('Doubles only apply after roll 3');
+                return;
+            }
+            
+            communityPot *= 2;
+            currentRoll++;
+            nextPlayer();
+        }
 
-          row.innerHTML = `
+        function nextPlayer() {
+            // Move to the next player in the absolute order
+            currentPlayerIndex++;
+            
+            // Make sure we're pointing to a non-banked player
+            const player = getCurrentPlayer(); // This will advance currentPlayerIndex if needed
+            
+            // If no players available, don't update display (round should end)
+            if (player) {
+                updateGameDisplay();
+                updatePlayersGrid();
+            }
+        }
+
+        function bankPoints(playerName) {
+            const player = players.find(p => p.name === playerName);
+            if (player && !player.banked) {
+                player.score += communityPot;
+                player.banked = true;
+                
+                // Check if all players have banked
+                const activePlayersThisRound = players.filter(p => !p.banked);
+                if (activePlayersThisRound.length === 0) {
+                    // Everyone has banked - advance to next player before starting new round
+                    currentPlayerIndex++;
+                    nextRound();
+                } else {
+                    // Make sure currentPlayerIndex points to a non-banked player
+                    getCurrentPlayer();
+                    updateGameDisplay();
+                    updatePlayersGrid();
+                }
+            }
+        }
+
+        function nextRound() {
+            if (currentRound >= totalRounds) {
+                endGame();
+                return;
+            }
+            
+            currentRound++;
+            currentRoll = 1;
+            communityPot = 0;
+            // Don't reset currentPlayerIndex - keep our position in the rotation
+            
+            // Reset all players' banked status
+            players.forEach(p => p.banked = false);
+            
+            updateGameDisplay();
+            updatePlayersGrid();
+        }
+
+        function endGame() {
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            const topScore = sortedPlayers[0].score;
+            const winners = sortedPlayers.filter(p => p.score === topScore);
+            
+            if (winners.length > 1) {
+                // We have a tie! Start tie-breaker
+                startTieBreaker(winners);
+            } else {
+                // Single winner
+                showWinner(winners[0]);
+            }
+        }
+        
+        function startTieBreaker(tiedPlayers) {
+            tieBreaker = true;
+            tieBreakerPlayers = tiedPlayers.map(p => ({...p, eliminated: false}));
+            tieBreakerCurrentIndex = 0;
+            
+            // Update UI for tie-breaker mode
+            document.getElementById('roundLabel').textContent = 'TIE-BREAKER!';
+            document.getElementById('currentRound').textContent = 'Roll-Off';
+            document.getElementById('currentRound').style.color = '#ff0000';
+            document.getElementById('communityPot').textContent = '-';
+            document.getElementById('rollTitle').innerHTML = '⚠️ Roll 7 = ELIMINATED ⚠️';
+            
+            // Hide doubles button and bank buttons during tie-breaker
+            document.getElementById('doubles-btn').style.display = 'none';
+            
+            // Make all dice buttons except 7 do nothing, make 7 eliminate
+            updateTieBreakerDisplay();
+        }
+        
+        function updateTieBreakerDisplay() {
+            const grid = document.getElementById('playersCompact');
+            grid.innerHTML = '';
+            
+            const activeTiePlayers = tieBreakerPlayers.filter(p => !p.eliminated);
+            const currentTiePlayer = activeTiePlayers[tieBreakerCurrentIndex % activeTiePlayers.length];
+            
+            tieBreakerPlayers.forEach(player => {
+                const row = document.createElement('div');
+                row.className = 'player-row';
+                
+                if (player === currentTiePlayer && !player.eliminated) {
+                    row.classList.add('active');
+                }
+                
+                if (player.eliminated) {
+                    row.classList.add('banked'); // Reuse banked styling for eliminated
+                }
+                
+                row.innerHTML = `
                     <div class="player-info">
-                        <div class="player-name">${player.name}</div>
+                        <div class="player-name">
+                            ${player.name}
+                        </div>
                         <div class="player-score">${player.score}</div>
                     </div>
-                    ${
-                      !player.banked && gameStarted
-                        ? `<button class="btn bank-btn" onclick="bankPoints('${player.name}')">Bank</button>`
-                        : ""
-                    }
-                    ${
-                      player.banked
-                        ? '<div class="banked-label">✓ Banked</div>'
-                        : ""
-                    }
+                    ${player.eliminated ? '<div style="color: #dc3545;">❌ ELIMINATED</div>' : '<div style="color: #ffd700;">🎲 In Play</div>'}
                 `;
-
-          grid.appendChild(row);
-        });
-      }
-
-      function recordRoll(value) {
-        const activePlayersThisRound = players.filter((p) => !p.banked);
-        if (activePlayersThisRound.length === 0) {
-          nextRound();
-          return;
+                
+                grid.appendChild(row);
+            });
+            
+            // Update 7 button to always be danger
+            const sevenBtn = document.getElementById('seven-btn');
+            sevenBtn.classList.add('danger-seven');
+            sevenBtn.innerHTML = '7 ☠️';
         }
-
-        if (currentRoll <= 3) {
-          // First 3 rolls (collective, not per player)
-          if (value === 7) {
-            communityPot += 70;
-          } else {
-            communityPot += value;
-          }
-        } else {
-          // Roll 4 and beyond
-          if (value === 7) {
-            // Seven terminates the round
-            nextRound();
-            return;
-          } else {
-            communityPot += value;
-          }
-        }
-
-        // Increment roll counter and move to next player
-        currentRoll++;
-        nextPlayer();
-      }
-
-      function recordDoubles() {
-        if (currentRoll <= 3) {
-          alert("Doubles only apply after roll 3");
-          return;
-        }
-
-        communityPot *= 2;
-        currentRoll++;
-        nextPlayer();
-      }
-
-      function nextPlayer() {
-        const activePlayersThisRound = players.filter((p) => !p.banked);
-
-        // Move to next active player
-        currentPlayerIndex =
-          (currentPlayerIndex + 1) % activePlayersThisRound.length;
-
-        updateGameDisplay();
-        updatePlayersGrid();
-      }
-
-      function bankPoints(playerName) {
-        const player = players.find((p) => p.name === playerName);
-        if (player && !player.banked) {
-          player.score += communityPot;
-          player.banked = true;
-
-          const activePlayersThisRound = players.filter((p) => !p.banked);
-
-          // If the current player banked, we need to adjust the index
-          if (activePlayersThisRound.length > 0) {
-            // Find the index of the current player in the original active players list
-            const previousActivePlayers = players.filter(
-              (p) => !p.banked || p === player
-            );
-            const currentPlayerName =
-              previousActivePlayers[
-                currentPlayerIndex % previousActivePlayers.length
-              ].name;
-
-            // If the banking player was the current roller, stay at same index (which moves to next player)
-            // Otherwise, find the new index of the current roller in the reduced list
-            if (currentPlayerName !== playerName) {
-              // Find where the current roller is in the new active players list
-              const currentRoller = players.find(
-                (p) => p.name === currentPlayerName
-              );
-              const newIndex = activePlayersThisRound.indexOf(currentRoller);
-              if (newIndex !== -1) {
-                currentPlayerIndex = newIndex;
-              }
-            } else {
-              // Current player banked, so stay at same index (next player in line)
-              currentPlayerIndex =
-                currentPlayerIndex % activePlayersThisRound.length;
+        
+        function handleTieBreakerRoll(value) {
+            const activeTiePlayers = tieBreakerPlayers.filter(p => !p.eliminated);
+            if (activeTiePlayers.length <= 1) {
+                // Tie-breaker is over
+                showWinner(activeTiePlayers[0]);
+                return;
             }
-          }
-
-          updateGameDisplay();
-          updatePlayersGrid();
-
-          // Check if all players have banked
-          if (activePlayersThisRound.length === 0) {
-            nextRound();
-          }
+            
+            const currentTiePlayer = activeTiePlayers[tieBreakerCurrentIndex % activeTiePlayers.length];
+            
+            if (value === 7) {
+                // Player rolled a 7 and is eliminated!
+                currentTiePlayer.eliminated = true;
+                
+                // Check if we have a winner
+                const remainingPlayers = tieBreakerPlayers.filter(p => !p.eliminated);
+                if (remainingPlayers.length === 1) {
+                    showWinner(remainingPlayers[0]);
+                    return;
+                }
+                
+                // Continue with next player (index stays same since we removed someone)
+                updateTieBreakerDisplay();
+            } else {
+                // Safe roll, move to next player
+                tieBreakerCurrentIndex++;
+                updateTieBreakerDisplay();
+            }
         }
-      }
-
-      function nextRound() {
-        if (currentRound >= totalRounds) {
-          endGame();
-          return;
-        }
-
-        currentRound++;
-        currentRoll = 1;
-        communityPot = 0;
-        // Don't reset currentPlayerIndex - keep the same player's turn
-
-        // Reset all players' banked status
-        players.forEach((p) => (p.banked = false));
-
-        updateGameDisplay();
-        updatePlayersGrid();
-      }
-
-      function endGame() {
-        const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-        const winner = sortedPlayers[0];
-
-        document.getElementById(
-          "winnerName"
-        ).textContent = `${winner.name} - ${winner.score} points`;
-
-        const scoresHtml = sortedPlayers
-          .map(
-            (p, i) => `
+        
+        function showWinner(winner) {
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            
+            document.getElementById('winnerName').textContent = `${winner.name} - ${winner.score} points`;
+            
+            const scoresHtml = sortedPlayers.map((p, i) => `
                 <div class="final-score-item">
                     <span>${i + 1}. ${p.name}</span>
                     <span>${p.score}</span>
                 </div>
-            `
-          )
-          .join("");
+            `).join('');
+            
+            document.getElementById('finalScores').innerHTML = scoresHtml;
+            document.getElementById('winnerModal').style.display = 'flex';
+        }
 
-        document.getElementById("finalScores").innerHTML = scoresHtml;
-        document.getElementById("winnerModal").style.display = "flex";
-      }
-
-      function resetGame() {
-        players = [];
-        totalRounds = 10;
-        currentRound = 1;
-        currentRoll = 1;
-        communityPot = 0;
-        currentPlayerIndex = 0;
-        gameStarted = false;
-
-        document.querySelector(".setup-section").style.display = "block";
-        document.querySelector(".game-section").style.display = "none";
-        document.getElementById("winnerModal").style.display = "none";
-
-        updatePlayerList();
-        document.querySelectorAll(".round-btn").forEach((btn) => {
-          btn.classList.remove("selected");
-        });
-      }
+        function resetGame() {
+            players = [];
+            totalRounds = 10;
+            currentRound = 1;
+            currentRoll = 1;
+            communityPot = 0;
+            currentPlayerIndex = 0;
+            gameStarted = false;
+            tieBreaker = false;
+            tieBreakerPlayers = [];
+            tieBreakerCurrentIndex = 0;
+            
+            // Reset UI elements that might have been modified during tie-breaker
+            document.getElementById('roundLabel').textContent = 'Round';
+            document.getElementById('currentRound').style.color = '';
+            document.getElementById('rollTitle').innerHTML = 'Roll Result';
+            document.getElementById('doubles-btn').style.display = '';
+            
+            document.querySelector('.setup-section').style.display = 'block';
+            document.querySelector('.game-section').style.display = 'none';
+            document.getElementById('winnerModal').style.display = 'none';
+            
+            updatePlayerList();
+            document.querySelectorAll('.round-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+        }
     </script>
-  </body>
+</body>
 </html>
