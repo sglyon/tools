@@ -21,6 +21,11 @@ const tools = [
         path: "interval-timer"
     },
     {
+        name: "Text Diff Viewer",
+        description: "Visual text diff tool to compare and highlight differences between two texts",
+        path: "text-diff"
+    },
+    {
         name: "Xcode Color Set Explorer",
         description: "Input Color JSON",
         path: "xcode-color-explorer"
